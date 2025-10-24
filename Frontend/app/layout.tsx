@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navigation from "@/components/Navigation";
 
 export const metadata: Metadata = {
-  title: "RiftRewind",
-  description: "League of Legends match history and replay viewer",
+  title: "League of Legends Champions",
+  description: "Browse and explore League of Legends champions with detailed stats and information",
 };
 
 export default function RootLayout({
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
+        <Navigation />
         {children}
       </body>
     </html>
