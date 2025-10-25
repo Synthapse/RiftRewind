@@ -212,8 +212,61 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
           
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="prose dark:prose-invert max-w-none">
-              <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
-                {geminiAnalysis}
+              <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                {geminiAnalysis.split('\n').map((line, index) => {
+                  // Handle headers
+                  if (line.startsWith('# ')) {
+                    return (
+                      <h1 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-6 mt-8">
+                        {line.substring(2)}
+                      </h1>
+                    );
+                  }
+                  if (line.startsWith('## ')) {
+                    return (
+                      <h2 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-4 mt-6">
+                        {line.substring(3)}
+                      </h2>
+                    );
+                  }
+                  if (line.startsWith('### ')) {
+                    return (
+                      <h3 key={index} className="text-3xl font-semibold text-gray-900 dark:text-white mb-3 mt-4">
+                        {line.substring(4)}
+                      </h3>
+                    );
+                  }
+                  // Handle bold text
+                  if (line.includes('**') && line.includes(':')) {
+                    const parts = line.split('**');
+                    return (
+                      <p key={index} className="mb-2">
+                        <strong className="font-semibold text-gray-900 dark:text-white">
+                          {parts[1]}:
+                        </strong>
+                        {parts[2] && <span>{parts[2]}</span>}
+                      </p>
+                    );
+                  }
+                  // Handle bullet points
+                  if (line.startsWith('- ')) {
+                    return (
+                      <li key={index} className="ml-6 mb-1 list-disc">
+                        {line.substring(2)}
+                      </li>
+                    );
+                  }
+                  // Handle empty lines
+                  if (line.trim() === '') {
+                    return <br key={index} />;
+                  }
+                  // Handle regular paragraphs
+                  return (
+                    <p key={index} className="mb-4">
+                      {line}
+                    </p>
+                  );
+                })}
               </div>
             </div>
           </div>

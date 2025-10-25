@@ -162,16 +162,48 @@ Team Objectives:
 - Rift Herald Kills: ${data.objectives.riftHeraldKills}
 - Tower Kills: ${data.objectives.towerKills}
 
-Please provide a comprehensive match analysis including:
-1. **Team Composition Analysis** - Strengths and weaknesses of each team's picks
-2. **Key Performance Indicators** - Who performed well/poorly and why
-3. **Critical Moments** - What likely determined the outcome
-4. **Strategic Insights** - What the winning team did right
-5. **Improvement Suggestions** - What the losing team could have done better
-6. **Meta Analysis** - How this match reflects current meta trends
-7. **Individual Player Analysis** - Standout performances and areas for improvement
+Please provide a comprehensive match analysis using the following format with markdown headers and bullet points:
 
-Format your response in a clear, actionable way that helps players understand the match dynamics and improve their gameplay.`;
+# League of Legends Match Analysis
+
+## 1. Team Composition Analysis
+### Winning Team (Team ID)
+**Strengths:**
+- [List strengths with bullet points]
+
+**Weaknesses:**
+- [List weaknesses with bullet points]
+
+### Losing Team (Team ID)
+**Strengths:**
+- [List strengths with bullet points]
+
+**Weaknesses:**
+- [List weaknesses with bullet points]
+
+## 2. Key Performance Indicators
+### Winning Team
+- **Player Name (KDA):** [Analysis with bullet points for each player]
+
+### Losing Team
+- **Player Name (KDA):** [Analysis with bullet points for each player]
+
+## 3. Critical Moments
+- [List key moments that determined the outcome]
+
+## 4. Strategic Insights (Winning Team)
+- [What the winning team did right]
+
+## 5. Improvement Suggestions (Losing Team)
+- [What the losing team could have done better]
+
+## 6. Meta Analysis
+- [How this match reflects current meta trends]
+
+## 7. Individual Player Analysis
+- **Player Name (Team):** [Standout performances and areas for improvement]
+
+Format your response using markdown headers (#, ##, ###) and bullet points (-) to create a clear, hierarchical structure that's easy to read and navigate. Make the analysis actionable and helpful for players to understand match dynamics and improve their gameplay.`;
 
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
