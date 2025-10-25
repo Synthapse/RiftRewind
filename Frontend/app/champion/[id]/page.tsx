@@ -5,12 +5,61 @@ import { useParams } from 'next/navigation';
 import { Champion, ChampionData } from '@/types/champion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { analyzeChampionWithGemini, ChampionAnalysisData } from '@/lib/gemini';
 
 export default function ChampionDetail() {
   const params = useParams();
   const [champion, setChampion] = useState<Champion | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Gemini Analysis states
+  const [geminiAnalysis, setGeminiAnalysis] = useState<string | null>(null);
+  const [geminiLoading, setGeminiLoading] = useState(false);
+  const [geminiError, setGeminiError] = useState<string | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  const handleGeminiAnalysis = async () => {
+    if (!champion) return;
+
+    try {
+      setGeminiLoading(true);
+      setGeminiError(null);
+
+      // Create sample match data for analysis (in a real app, this would come from actual match data)
+      const analysisData: ChampionAnalysisData = {
+        championName: champion.name,
+        matchStats: {
+          kills: 8,
+          deaths: 3,
+          assists: 12,
+          cs: 180,
+          gold: 12000,
+          damage: 25000,
+          visionScore: 45,
+          win: true
+        },
+        championStats: {
+          level: 18,
+          position: champion.tags[0] || 'Fighter',
+          role: champion.tags[0] || 'Fighter'
+        }
+      };
+
+      const result = await analyzeChampionWithGemini(analysisData);
+      
+      if (result.success && result.content) {
+        setGeminiAnalysis(result.content);
+        setShowAnalysis(true);
+      } else {
+        setGeminiError(result.error || 'Failed to get analysis');
+      }
+    } catch (error) {
+      setGeminiError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchChampion = async () => {
@@ -227,6 +276,98 @@ export default function ChampionDetail() {
                   ))}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{champion.info.difficulty}/10</p>
+              </div>
+            </div>
+
+            {/* Gemini AI Analysis Section */}
+            <div className="mt-8">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-6 border border-purple-200 dark:border-purple-700">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m4.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">AI Strategic Analysis</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Get personalized strategy tips powered by Gemini AI</p>
+                  </div>
+                </div>
+
+                {!showAnalysis && !geminiLoading && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Get AI-powered strategic analysis and improvement tips for {champion.name}
+                    </p>
+                    <button
+                      onClick={handleGeminiAnalysis}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 transform hover:scale-105"
+                    >
+                      Analyze with Gemini AI
+                    </button>
+                  </div>
+                )}
+
+                {geminiLoading && (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center space-x-3">
+                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-gray-600 dark:text-gray-400">Analyzing with Gemini AI...</span>
+                    </div>
+                  </div>
+                )}
+
+                {geminiError && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-red-700 dark:text-red-300 font-medium">Analysis Error</span>
+                    </div>
+                    <p className="text-red-600 dark:text-red-400 mt-1">{geminiError}</p>
+                    <button
+                      onClick={handleGeminiAnalysis}
+                      className="mt-3 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                )}
+
+                {geminiAnalysis && showAnalysis && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Strategic Analysis</h3>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setShowAnalysis(false)}
+                          className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          Hide
+                        </button>
+                        <button
+                          onClick={handleGeminiAnalysis}
+                          className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                        >
+                          Refresh
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="prose dark:prose-invert max-w-none">
+                        <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+                          {geminiAnalysis}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                      Analysis generated by Gemini AI • Response saved to file
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
