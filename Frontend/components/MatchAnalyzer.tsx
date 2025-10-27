@@ -29,11 +29,33 @@ interface MatchData {
     teams: {
       teamId: number;
       win: boolean;
-      baronKills: number;
-      dragonKills: number;
-      riftHeraldKills: number;
-      towerKills: number;
+      bans: Array<{
+        championId: number;
+        pickTurn: number;
+      }>;
+      objectives: {
+        baron: { first: boolean; kills: number };
+        dragon: { first: boolean; kills: number };
+        tower: { first: boolean; kills: number };
+        inhibitor: { first: boolean; kills: number };
+      };
     }[];
+  };
+  timeline?: {
+    metadata: {
+      dataVersion: string;
+      matchId: string;
+      participants: string[];
+    };
+    info: {
+      endOfGameResult: string;
+      frameInterval: number;
+      frames: Array<{
+        events: any[];
+        participantFrames: Record<string, any>;
+        timestamp: number;
+      }>;
+    };
   };
 }
 
@@ -47,59 +69,76 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
   const [geminiError, setGeminiError] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
-  const handleGeminiAnalysis = async () => {
+  const handleBedrockAnalysis = async () => {
     if (!matchData) return;
-
+  
     try {
       setGeminiLoading(true);
       setGeminiError(null);
-
-      // Transform match data for Gemini analysis
-      const analysisData: MatchAnalysisData = {
-        matchId: matchData.metadata.matchId,
-        gameDuration: matchData.info.gameDuration,
-        gameMode: matchData.info.gameMode,
-        queueId: matchData.info.queueId,
-        teams: matchData.info.participants.reduce((acc, participant) => {
-          let team = acc.find(t => t.teamId === participant.teamId);
-          if (!team) {
-            team = {
-              teamId: participant.teamId,
-              win: participant.win,
-              participants: []
-            };
-            acc.push(team);
-          }
-          team.participants.push({
-            championName: participant.championName,
-            summonerName: participant.summonerName,
-            kills: participant.kills,
-            deaths: participant.deaths,
-            assists: participant.assists,
-            cs: participant.totalMinionsKilled,
-            gold: participant.goldEarned,
-            damage: participant.totalDamageDealtToChampions,
-            visionScore: participant.visionScore,
-            level: participant.champLevel,
-            position: participant.teamPosition
-          });
-          return acc;
-        }, [] as any[]),
-        objectives: {
-          baronKills: matchData.info.teams[0]?.baronKills || 0,
-          dragonKills: matchData.info.teams[0]?.dragonKills || 0,
-          riftHeraldKills: matchData.info.teams[0]?.riftHeraldKills || 0,
-          towerKills: matchData.info.teams[0]?.towerKills || 0
-        }
+  
+      // Transform match data for Lambda (same as before)
+      const lambdaData = {
+        matchData: {
+          matchId: matchData.metadata.matchId,
+          gameDuration: matchData.info.gameDuration,
+          gameMode: matchData.info.gameMode,
+          queueId: matchData.info.queueId,
+          teams: matchData.info.participants.reduce((acc, participant) => {
+            let team = acc.find((t) => t.teamId === participant.teamId);
+            if (!team) {
+              team = {
+                teamId: participant.teamId,
+                win: participant.win,
+                participants: [],
+              };
+              acc.push(team);
+            }
+            team.participants.push({
+              championName: participant.championName,
+              summonerName: participant.summonerName,
+              kills: participant.kills,
+              deaths: participant.deaths,
+              assists: participant.assists,
+              cs: participant.totalMinionsKilled,
+              gold: participant.goldEarned,
+              damage: participant.totalDamageDealtToChampions,
+              visionScore: participant.visionScore,
+              level: participant.champLevel,
+              position: participant.teamPosition,
+            });
+            return acc;
+          }, [] as any[]),
+          objectives: {
+            baronKills: matchData.info.teams[0]?.objectives?.baron?.kills || 0,
+            dragonKills: matchData.info.teams[0]?.objectives?.dragon?.kills || 0,
+            riftHeraldKills: 0, // Not available in the current structure
+            towerKills: matchData.info.teams[0]?.objectives?.tower?.kills || 0,
+          },
+          timeline: matchData.timeline || null,
+        },
       };
-
-      const result = await analyzeMatchWithGemini(analysisData);
-      
-      if (result.success && result.content) {
-        setGeminiAnalysis(result.content);
+  
+      const APIUrl = "https://or0v98ycwe.execute-api.us-east-1.amazonaws.com/prod/league-ai-analytics-data-ingest";
+      // Call your Lambda via API Gateway
+      const response = await fetch(APIUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(lambdaData),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Lambda error: ${response.status} ${response.statusText}`);
+      }
+  
+      const result = await response.json();
+  
+      if (result.statusCode === 200 && result.body) {
+        setGeminiAnalysis(result.body);
         setShowAnalysis(true);
       } else {
-        setGeminiError(result.error || 'Failed to get analysis');
+        setGeminiError(result.body || 'Failed to get analysis');
       }
     } catch (error) {
       setGeminiError(error instanceof Error ? error.message : 'An error occurred');
@@ -107,6 +146,7 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
       setGeminiLoading(false);
     }
   };
+  
 
   // Reset analysis when match data changes
   useEffect(() => {
@@ -155,7 +195,7 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
             Analyze this match with AI to get strategic insights, team composition analysis, and key performance indicators
           </p>
           <button
-            onClick={handleGeminiAnalysis}
+            onClick={handleBedrockAnalysis}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 transform hover:scale-105"
           >
             Analyze Match with Gemini AI
@@ -182,7 +222,7 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
           </div>
           <p className="text-red-600 dark:text-red-400 mt-1">{geminiError}</p>
           <button
-            onClick={handleGeminiAnalysis}
+            onClick={handleBedrockAnalysis}
             className="mt-3 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
           >
             Try Again
@@ -202,7 +242,7 @@ export default function MatchAnalyzer({ matchData }: MatchAnalyzerProps) {
                 Hide
               </button>
               <button
-                onClick={handleGeminiAnalysis}
+                onClick={handleBedrockAnalysis}
                 className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
               >
                 Refresh

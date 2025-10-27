@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Champion, ChampionData } from '@/types/champion';
 import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
+import MatchTimeline from './MatchTimeline';
 
 interface MatchData {
   metadata: {
@@ -96,6 +97,22 @@ interface MatchData {
     }>;
     tournamentCode: string;
   };
+  timeline?: {
+    metadata: {
+      dataVersion: string;
+      matchId: string;
+      participants: string[];
+    };
+    info: {
+      endOfGameResult: string;
+      frameInterval: number;
+      frames: Array<{
+        events: any[];
+        participantFrames: Record<string, any>;
+        timestamp: number;
+      }>;
+    };
+  };
 }
 
 export default function MatchLookup() {
@@ -105,11 +122,19 @@ export default function MatchLookup() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'match' | 'timeline'>('match');
+  
   // Champion mapping states
   const [championMap, setChampionMap] = useState<Record<string, Champion>>({});
   
   // Riot API configuration
-  const API_KEY = "RGAPI-cbd4e7fa-c38d-44e3-8ce3-9e38dd73baac";
+
+  // 3850859744
+
+
+
+  const API_KEY = "RGAPI-61e4f1c7-f5d9-4cd9-a285-0e84b66428f6";
   const platform = "eun1"; // EUNE server
 
   // Function to fetch champion data for mapping
@@ -144,9 +169,9 @@ export default function MatchLookup() {
       const fullMatchId = matchId;
       
       // Match endpoint with API key as query parameter
-      const url = `https://europe.api.riotgames.com/lol/match/v5/matches/${fullMatchId}?api_key=${API_KEY}`;
+      const matchUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${fullMatchId}?api_key=${API_KEY}`;
       
-      const response = await fetch(url);
+      const response = await fetch(matchUrl);
       
       if (!response.ok) {
         if (response.status === 403) {
@@ -159,6 +184,19 @@ export default function MatchLookup() {
       }
       
       const data = await response.json();
+      
+      // Fetch timeline data
+      const timelineUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline?api_key=${API_KEY}`;
+      let timelineData = null;
+      
+      try {
+        const timelineResponse = await fetch(timelineUrl);
+        if (timelineResponse.ok) {
+          timelineData = await timelineResponse.json();
+        }
+      } catch (timelineErr) {
+        console.warn('Failed to fetch timeline data:', timelineErr);
+      }
       
       // Transform the data to match our frontend interface
       const transformedData = {
@@ -268,7 +306,8 @@ export default function MatchLookup() {
               }
             }
           })) || []
-        }
+        },
+        timeline: timelineData || undefined
       };
       
       setMatchData(transformedData);
@@ -286,13 +325,13 @@ export default function MatchLookup() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
 
         {/* Match Input Section */}
-        <div className="max-w-2xl mx-auto mb-12">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/20 p-8">
+        <div className="max-w-4xl mx-auto mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -303,22 +342,22 @@ export default function MatchLookup() {
                   placeholder="EUN1_3849902044"
                   value={matchId}
                   onChange={(e) => setMatchId(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="flex items-end">
                 <button
                   onClick={fetchMatchData}
                   disabled={matchLoading || !matchId.trim()}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 shadow-lg disabled:shadow-none"
+                  className="px-6 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md font-medium transition-colors"
                 >
                   {matchLoading ? (
                     <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
                       <span>Loading...</span>
                     </div>
                   ) : (
-                    'Get Match Data'
+                    'Fetch Match'
                   )}
                 </button>
               </div>
@@ -327,216 +366,131 @@ export default function MatchLookup() {
         </div>
         {/* Error Display */}
         {matchError && (
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-6 py-4 rounded-xl backdrop-blur-sm">
-              <div className="flex items-center space-x-3">
-                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="font-medium">{matchError}</span>
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-md">
+              <span className="font-medium">{matchError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs */}
+        {matchData && (
+          <div className="max-w-6xl mx-auto mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setActiveTab('match')}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                    activeTab === 'match'
+                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Match Information
+                </button>
+                {matchData.timeline && (
+                  <button
+                    onClick={() => setActiveTab('timeline')}
+                    className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                      activeTab === 'timeline'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Timeline
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {/* Match Data Display */}
-        {matchData && (
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/20 p-8 mb-8">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Match Information</h3>
+        {matchData && activeTab === 'match' && (
+          <div className="max-w-6xl mx-auto mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Match Details</h3>
               </div>
               
               {/* Basic Match Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v1m0 0V1a1 1 0 011-1h2a1 1 0 011 1v1m0 0V2a1 1 0 011 1v1m-3 0V2a1 1 0 011-1h2a1 1 0 011 1v1m0 0V1a1 1 0 011-1h2a1 1 0 011 1v1" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Match ID</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.metadata.matchId}</p>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Match ID</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.metadata.matchId}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Duration</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {Math.floor(matchData.info.gameDuration / 60)}:{(matchData.info.gameDuration % 60).toString().padStart(2, '0')}
-                      </p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Duration</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {Math.floor(matchData.info.gameDuration / 60)}:{(matchData.info.gameDuration % 60).toString().padStart(2, '0')}
+                  </p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Game Mode</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.gameMode}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game Mode</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameMode}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Game Type</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.gameType}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game Type</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameType}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Queue ID</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.queueId}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Queue ID</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.queueId}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Version</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.gameVersion}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Version</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameVersion}</p>
                 </div>
               </div>
 
               {/* Additional Match Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Game ID</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.gameId}</p>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game ID</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameId}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-rose-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Platform</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.platformId}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Platform</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.platformId}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Map ID</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.mapId}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Map ID</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.mapId}</p>
                 </div>
                 
-                <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-violet-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Result</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{matchData.info.endOfGameResult}</p>
-                    </div>
-                  </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Result</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.endOfGameResult}</p>
                 </div>
               </div>
               
               
               {/* Team 100 (Blue Team) */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <h4 className="text-2xl font-bold text-blue-900 dark:text-blue-100">Blue Team (Team 100)</h4>
+              <div className="mb-6">
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Team 100</h4>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {matchData.info.participants
                     .filter(participant => participant.teamId === 100)
                     .map((participant, index) => {
-                      const teamColor = 'from-blue-500 to-cyan-500';
-                      const teamBgColor = 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20';
-                      
                       return (
-                        <div key={index} className={`bg-gradient-to-r ${teamBgColor} rounded-2xl p-6 border border-white/20 dark:border-gray-700/20 backdrop-blur-sm`}>
+                        <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h5 className="font-bold text-lg text-gray-900 dark:text-white">
                             {participant.summonerName}
                           </h5>
                           <div className="flex items-center space-x-2 mt-1">
-                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${teamColor} text-white`}>
-                              Team {participant.teamId}
-                            </div>
-                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                              participant.win 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                            }`}>
+                            <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
                               {participant.win ? 'Victory' : 'Defeat'}
                             </div>
                           </div>
@@ -558,7 +512,7 @@ export default function MatchLookup() {
                                   className="w-14 h-14 object-cover"
                                 />
                               </div>
-                              <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-r ${teamColor} rounded-full flex items-center justify-center text-xs font-bold text-white`}>
+                              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
                                 {participant.champLevel}
                               </div>
                             </div>
@@ -701,40 +655,25 @@ export default function MatchLookup() {
                 </div>
               </div>
 
-              {/* Team 200 (Red Team) */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <h4 className="text-2xl font-bold text-red-900 dark:text-red-100">Red Team (Team 200)</h4>
+              {/* Team 200 */}
+              <div className="mb-6">
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Team 200</h4>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {matchData.info.participants
                     .filter(participant => participant.teamId === 200)
                     .map((participant, index) => {
-                      const teamColor = 'from-red-500 to-pink-500';
-                      const teamBgColor = 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20';
-                      
                       return (
-                        <div key={index} className={`bg-gradient-to-r ${teamBgColor} rounded-2xl p-6 border border-white/20 dark:border-gray-700/20 backdrop-blur-sm`}>
+                        <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h5 className="font-bold text-lg text-gray-900 dark:text-white">
                                 {participant.summonerName}
                               </h5>
                               <div className="flex items-center space-x-2 mt-1">
-                                <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${teamColor} text-white`}>
-                                  Team {participant.teamId}
-                                </div>
-                                <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                  participant.win 
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                                }`}>
+                                <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
                                   {participant.win ? 'Victory' : 'Defeat'}
                                 </div>
                               </div>
@@ -756,7 +695,7 @@ export default function MatchLookup() {
                                       className="w-14 h-14 object-cover"
                                     />
                                   </div>
-                                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-r ${teamColor} rounded-full flex items-center justify-center text-xs font-bold text-white`}>
+                                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
                                     {participant.champLevel}
                                   </div>
                                 </div>
@@ -902,33 +841,18 @@ export default function MatchLookup() {
               {/* Team Objectives and Bans */}
               {matchData.info.teams && matchData.info.teams.length > 0 && (
                 <div className="mt-8">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-2xl font-bold text-gray-900 dark:text-white">Team Objectives & Bans</h4>
+                  <div className="mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Team Objectives & Bans</h4>
                   </div>
                   
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {matchData.info.teams.map((team, index) => (
-                      <div key={index} className={`bg-gradient-to-r ${
-                        team.teamId === 100 
-                          ? 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20' 
-                          : 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20'
-                      } rounded-2xl p-6 border border-white/20 dark:border-gray-700/20 backdrop-blur-sm`}>
+                      <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                         <div className="flex items-center justify-between mb-4">
-                          <h5 className={`font-bold text-lg ${
-                            team.teamId === 100 ? 'text-blue-900 dark:text-blue-100' : 'text-red-900 dark:text-red-100'
-                          }`}>
+                          <h5 className="font-semibold text-base text-gray-900 dark:text-white">
                             Team {team.teamId}
                           </h5>
-                          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                            team.win 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          }`}>
+                          <div className="px-2 py-1 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
                             {team.win ? 'Victory' : 'Defeat'}
                           </div>
                         </div>
@@ -966,7 +890,7 @@ export default function MatchLookup() {
                             <h6 className="font-semibold text-gray-900 dark:text-white mb-2">Bans</h6>
                             <div className="flex flex-wrap gap-2">
                               {team.bans.map((ban, banIndex) => (
-                                <div key={banIndex} className="bg-white/60 dark:bg-gray-700/60 px-3 py-1 rounded-full text-sm">
+                                <div key={banIndex} className="bg-white dark:bg-gray-700 px-2 py-1 rounded-md text-xs border border-gray-200 dark:border-gray-600">
                                   <span className="text-gray-600 dark:text-gray-400">Pick {ban.pickTurn}:</span>
                                   <span className="ml-1 font-medium text-gray-900 dark:text-white">Champion {ban.championId}</span>
                                 </div>
@@ -983,10 +907,15 @@ export default function MatchLookup() {
           </div>
         )}
 
-        {/* Match Analyzer */}
-        {matchData && (
-          <div className="max-w-6xl mx-auto mb-8">
-            <MatchAnalyzer matchData={matchData} />
+        {/* Timeline Tab Content */}
+        {matchData && activeTab === 'timeline' && matchData.timeline && (
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <MatchTimeline 
+                timeline={matchData.timeline} 
+                participants={matchData.info.participants}
+              />
+            </div>
           </div>
         )}
       </div>

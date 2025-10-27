@@ -18,3 +18,22 @@ https://www.kaggle.com/code/fortyeth/analyzing-win-attributes-in-league-of-legen
 
 win_predictions
 https://www.kaggle.com/code/gulsahdemiryurek/let-s-predict-league-of-legends-match-score
+
+
+# Infrastructure
+
+Infrastructure is hosted via AWS: 
+
+- aws sts get-caller-identity
+
+
+  Bedrock:
+
+  Think of Bedrock as a universal interface to multiple AI “brains” in the cloud. You don’t care about their GPUs, updates, or scaling — you just send them a request and get results.
+
+  (sending requests)
+
+{
+    "modelId": "ai21.j2.large",
+    "inputText": "Write a short poem about autumn."
+}
