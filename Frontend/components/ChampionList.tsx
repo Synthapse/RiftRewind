@@ -128,6 +128,11 @@ export default function MatchLookup() {
   // Champion mapping states
   const [championMap, setChampionMap] = useState<Record<string, Champion>>({});
   
+  // AI Analysis states
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  
   // Riot API configuration
 
   // 3850859744
@@ -323,6 +328,83 @@ export default function MatchLookup() {
     fetchChampionData();
   }, []);
 
+  const fetchAIAnalysis = async () => {
+    if (!matchData) return;
+
+    try {
+      setAiLoading(true);
+      
+      // Transform match data for Lambda
+      const lambdaData = {
+        matchData: {
+          matchId: matchData.metadata.matchId,
+          gameDuration: matchData.info.gameDuration,
+          gameMode: matchData.info.gameMode,
+          queueId: matchData.info.queueId,
+          teams: matchData.info.participants.reduce((acc: any[], participant: any) => {
+            let team = acc.find((t) => t.teamId === participant.teamId);
+            if (!team) {
+              team = {
+                teamId: participant.teamId,
+                win: participant.win,
+                participants: [],
+              };
+              acc.push(team);
+            }
+            team.participants.push({
+              championName: participant.championName,
+              summonerName: participant.summonerName,
+              kills: participant.kills,
+              deaths: participant.deaths,
+              assists: participant.assists,
+              cs: participant.totalMinionsKilled,
+              gold: participant.goldEarned,
+              damage: participant.totalDamageDealtToChampions,
+              visionScore: participant.visionScore,
+              level: participant.champLevel,
+              position: participant.teamPosition,
+            });
+            return acc;
+          }, []),
+          objectives: {
+            baronKills: matchData.info.teams[0]?.objectives?.baron?.kills || 0,
+            dragonKills: matchData.info.teams[0]?.objectives?.dragon?.kills || 0,
+            riftHeraldKills: 0,
+            towerKills: matchData.info.teams[0]?.objectives?.tower?.kills || 0,
+          },
+          timeline: matchData.timeline || null,
+        },
+      };
+
+      const APIUrl = "https://or0v98ycwe.execute-api.us-east-1.amazonaws.com/prod/league-ai-analytics-data-ingest";
+      const response = await fetch(APIUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(lambdaData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Lambda error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.statusCode === 200 && result.body) {
+        setAiAnalysis(result.body);
+        setShowAiModal(true);
+      } else {
+        throw new Error(result.body || 'Failed to get analysis');
+      }
+    } catch (error) {
+      console.error('AI Analysis error:', error);
+      alert('Failed to get AI analysis. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -400,6 +482,15 @@ export default function MatchLookup() {
                     Timeline
                   </button>
                 )}
+                {matchData.timeline && (
+                  <a
+                    href={`/match/${matchData.metadata.matchId}/rewind`}
+                    className="flex-1 px-6 py-4 text-sm font-medium transition-all bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white hover:text-white flex items-center justify-center rounded-tr-lg"
+                  >
+                    <span className="mr-2">🎬</span>
+                    Rewind
+                  </a>
+                )}
               </div>
             </div>
           </div>
@@ -409,8 +500,25 @@ export default function MatchLookup() {
         {matchData && activeTab === 'match' && (
           <div className="max-w-6xl mx-auto mb-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-              <div className="mb-6">
+              <div className="mb-6 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Match Details</h3>
+                <button
+                  onClick={fetchAIAnalysis}
+                  disabled={aiLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>AI Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🤖</span>
+                      <span>AI Analysis</span>
+                    </>
+                  )}
+                </button>
               </div>
               
               {/* Basic Match Info */}
@@ -915,6 +1023,79 @@ export default function MatchLookup() {
                 timeline={matchData.timeline} 
                 participants={matchData.info.participants}
               />
+            </div>
+          </div>
+        )}
+
+        {/* AI Analysis Modal */}
+        {showAiModal && aiAnalysis && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-4xl max-h-[90vh] overflow-y-auto border-2 border-gray-200 dark:border-gray-700 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="text-4xl">🤖</div>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">AI Match Analysis</h2>
+                </div>
+                <button
+                  onClick={() => setShowAiModal(false)}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="prose dark:prose-invert max-w-none">
+                <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  {aiAnalysis.split('\n').map((line, index) => {
+                    if (line.startsWith('# ')) {
+                      return (
+                        <h1 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-6 mt-8">
+                          {line.substring(2)}
+                        </h1>
+                      );
+                    }
+                    if (line.startsWith('## ')) {
+                      return (
+                        <h2 key={index} className="text-3xl font-bold text-gray-900 dark:text-white mb-4 mt-6">
+                          {line.substring(3)}
+                        </h2>
+                      );
+                    }
+                    if (line.startsWith('### ')) {
+                      return (
+                        <h3 key={index} className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 mt-4">
+                          {line.substring(4)}
+                        </h3>
+                      );
+                    }
+                    if (line.includes('**') && line.includes(':')) {
+                      const parts = line.split('**');
+                      return (
+                        <p key={index} className="mb-2">
+                          <strong className="font-semibold text-gray-900 dark:text-white">
+                            {parts[1]}:
+                          </strong>
+                          {parts[2] && <span>{parts[2]}</span>}
+                        </p>
+                      );
+                    }
+                    if (line.startsWith('- ')) {
+                      return (
+                        <li key={index} className="ml-6 mb-1 list-disc">
+                          {line.substring(2)}
+                        </li>
+                      );
+                    }
+                    if (line.trim() === '') {
+                      return <br key={index} />;
+                    }
+                    return (
+                      <p key={index} className="mb-4">
+                        {line}
+                      </p>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         )}
