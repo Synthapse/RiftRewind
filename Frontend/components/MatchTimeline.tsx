@@ -35,6 +35,8 @@ export default function MatchTimeline({ timeline, participants }: MatchTimelineP
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [showDetails, setShowDetails] = useState<Record<number, boolean>>({});
+  const [selectedChampion, setSelectedChampion] = useState<string>('all');
+  const [showKillMap, setShowKillMap] = useState(false);
 
   // Extract key events from timeline
   const keyEvents: Array<{
@@ -203,10 +205,118 @@ export default function MatchTimeline({ timeline, participants }: MatchTimelineP
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Filter events based on selected filter
+  // Get unique champions from kills
+  const getChampionsFromKills = () => {
+    const champions = new Set<string>();
+    keyEvents.forEach((event) => {
+      if (event.type === 'CHAMPION_KILL' || event.type === 'CHAMPION_SPECIAL_KILL') {
+        if (event.killerId) {
+          const killer = participants[event.killerId - 1];
+          if (killer) champions.add(killer.championName);
+        }
+        if (event.victimId) {
+          const victim = participants[event.victimId - 1];
+          if (victim) champions.add(victim.championName);
+        }
+      }
+    });
+    return Array.from(champions).sort();
+  };
+
+  // Get kill events with positions
+  const getKillEventsWithPositions = () => {
+    return keyEvents.filter((event) => 
+      (event.type === 'CHAMPION_KILL' || event.type === 'CHAMPION_SPECIAL_KILL') &&
+      event.position &&
+      event.killerId &&
+      event.victimId
+    );
+  };
+
+  // Filter kills by champion
+  const getFilteredKills = () => {
+    const killEvents = getKillEventsWithPositions();
+    if (selectedChampion === 'all') return killEvents;
+    
+    return killEvents.filter((event) => {
+      const killer = participants[event.killerId! - 1];
+      const victim = participants[event.victimId! - 1];
+      return killer?.championName === selectedChampion || victim?.championName === selectedChampion;
+    });
+  };
+
+  // Analyze kill positioning
+  const analyzeKillPositions = () => {
+    const kills = getFilteredKills();
+    if (kills.length === 0) return null;
+
+    // Map dimensions: Summoner's Rift is approximately 14800 x 14800
+    const mapWidth = 14800;
+    const mapHeight = 14800;
+    
+    // Analyze by lanes (approximate positions)
+    const topLane = kills.filter(k => k.position && k.position.y < mapHeight * 0.3);
+    const midLane = kills.filter(k => k.position && k.position.y >= mapHeight * 0.3 && k.position.y < mapHeight * 0.7);
+    const botLane = kills.filter(k => k.position && k.position.y >= mapHeight * 0.7);
+    
+    // Analyze by jungle
+    const jungle = kills.filter(k => {
+      if (!k.position) return false;
+      const x = k.position.x;
+      const y = k.position.y;
+      // Approximate jungle areas (middle area away from lanes)
+      return (x > mapWidth * 0.3 && x < mapWidth * 0.7) || 
+             (y > mapHeight * 0.3 && y < mapHeight * 0.7);
+    });
+
+    // Find hotspots (areas with multiple kills)
+    const hotspots: Array<{x: number, y: number, count: number}> = [];
+    const gridSize = 1000; // 1k unit grid
+    
+    for (let x = 0; x < mapWidth; x += gridSize) {
+      for (let y = 0; y < mapHeight; y += gridSize) {
+        const killsInArea = kills.filter(k => 
+          k.position && 
+          k.position.x >= x && k.position.x < x + gridSize &&
+          k.position.y >= y && k.position.y < y + gridSize
+        );
+        if (killsInArea.length >= 2) {
+          hotspots.push({
+            x: x + gridSize / 2,
+            y: y + gridSize / 2,
+            count: killsInArea.length
+          });
+        }
+      }
+    }
+    
+    // Important locations on Summoner's Rift
+    const importantLocations = [
+      { name: 'Blue Nexus', x: 400, y: 400, color: 'blue' },
+      { name: 'Mid Lane Center', x: 7500, y: 7500, color: 'yellow' },
+      { name: 'Red Nexus', x: 14400, y: 14400, color: 'red' }
+    ];
+
+    return {
+      total: kills.length,
+      topLane: topLane.length,
+      midLane: midLane.length,
+      botLane: botLane.length,
+      jungle: jungle.length,
+      hotspots,
+      importantLocations
+    };
+  };
+
+  const positionAnalysis = analyzeKillPositions();
+
+  // Filter events based on selected filter AND champion
   const getFilteredEvents = () => {
+    let filtered = keyEvents;
+    
+    // First filter by event type
     if (selectedFilter === 'all') {
-      return keyEvents.filter((e) => 
+      filtered = keyEvents.filter((e) => 
         e.type === 'CHAMPION_KILL' || 
         e.type === 'CHAMPION_SPECIAL_KILL' ||
         e.type === 'ELITE_MONSTER_KILL' || 
@@ -216,8 +326,31 @@ export default function MatchTimeline({ timeline, participants }: MatchTimelineP
         e.type === 'OBJECTIVE_BOUNTY_FINISH' ||
         e.type === 'GAME_END'
       );
+    } else {
+      filtered = keyEvents.filter((e) => e.type === selectedFilter);
     }
-    return keyEvents.filter((e) => e.type === selectedFilter);
+    
+    // Then filter by champion if one is selected
+    if (selectedChampion !== 'all') {
+      filtered = filtered.filter((event) => {
+        // Check if the event involves the selected champion
+        if (event.killerId) {
+          const killer = participants[event.killerId - 1];
+          if (killer?.championName === selectedChampion) return true;
+        }
+        if (event.victimId) {
+          const victim = participants[event.victimId - 1];
+          if (victim?.championName === selectedChampion) return true;
+        }
+        if (event.participantId) {
+          const participant = participants[event.participantId - 1];
+          if (participant?.championName === selectedChampion) return true;
+        }
+        return false;
+      });
+    }
+    
+    return filtered;
   };
 
   const filteredEvents = getFilteredEvents();
@@ -274,6 +407,223 @@ export default function MatchTimeline({ timeline, participants }: MatchTimelineP
           </div>
         </div>
       </div>
+
+      {/* Champion Filter */}
+      <div className="mb-6">
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Filter by Champion:
+          </label>
+          <select
+            value={selectedChampion}
+            onChange={(e) => setSelectedChampion(e.target.value)}
+            className="px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="all">All Champions</option>
+            {getChampionsFromKills().map((champion) => (
+              <option key={champion} value={champion}>
+                {champion}
+              </option>
+            ))}
+          </select>
+          {selectedChampion !== 'all' && (
+            <button
+              onClick={() => setSelectedChampion('all')}
+              className="px-3 py-1.5 text-sm bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors flex items-center space-x-1"
+            >
+              <span>✕</span>
+              <span>Clear Filter</span>
+            </button>
+          )}
+          <button
+            onClick={() => setShowKillMap(!showKillMap)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              showKillMap
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            {showKillMap ? 'Hide' : 'Show'} Kill Map
+          </button>
+        </div>
+        {selectedChampion !== 'all' && (
+          <div className="mt-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              🔍 Showing events for <strong>{selectedChampion}</strong> ({filteredEvents.length} events)
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Kill Position Analysis */}
+      {positionAnalysis && showKillMap && (
+        <div className="mb-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-700">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Kill Position Analysis {selectedChampion !== 'all' && `- ${selectedChampion}`}
+          </h4>
+          
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total Kills</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{positionAnalysis.total}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Top Lane</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{positionAnalysis.topLane}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mid Lane</div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{positionAnalysis.midLane}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bot Lane</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{positionAnalysis.botLane}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Jungle</div>
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{positionAnalysis.jungle}</div>
+            </div>
+          </div>
+
+          {/* Kill Map Visualization */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Kill Locations</h5>
+            <div 
+              className="relative mx-auto" 
+              style={{ 
+                width: '600px', 
+                height: '600px',
+                backgroundColor: '#718096'
+              }}
+            >
+              {/* Map Background with 10% opacity */}
+              <div 
+                className="absolute inset-0"
+                style={{ 
+                  backgroundImage: 'url(https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.gry-online.pl%2Fstatic%2Fmapy%2Fpl%2Fgfx%2Fmap_2413.jpg&f=1&nofb=1&ipt=002c8eb757a872037055ebd8b0fe297797a4ec7dfb8a9d57ca612048f7f16247)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  opacity: 0.25
+                }}
+              />
+              {/* X-Axis Labels */}
+              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-xs text-white/60">
+                <span>0</span>
+                <span>3700</span>
+                <span>7400</span>
+                <span>11100</span>
+                <span>14800</span>
+              </div>
+              
+              {/* Y-Axis Labels */}
+              <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between py-1 text-xs text-white/60" style={{ writingMode: 'vertical-rl' }}>
+                <span>0</span>
+                <span>3700</span>
+                <span>7400</span>
+                <span>11100</span>
+                <span>14800</span>
+              </div>
+              
+              {/* Map grid lines */}
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Horizontal lines */}
+                <div className="absolute top-[20%] left-0 right-0 h-px bg-white/20" />
+                <div className="absolute top-[40%] left-0 right-0 h-px bg-white/20" />
+                <div className="absolute top-[60%] left-0 right-0 h-px bg-white/20" />
+                <div className=" dividing-line" style={{ top: '50%', left: 0, right: 0, height: '2px', background: 'rgba(255,255,255,0.4)' }} />
+                <div className="absolute top-[80%] left-0 right-0 h-px bg-white/20" />
+                
+                {/* Vertical lines */}
+                <div className="absolute left-[20%] top-0 bottom-0 w-px bg-white/20" />
+                <div className=" dividing-line" style={{ left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.4)' }} />
+                <div className="absolute left-[80%] top-0 bottom-0 w-px bg-white/20" />
+              </div>
+              
+              {/* Kill/Death Icons with hover info */}
+              {getFilteredKills().map((kill, index) => {
+                if (!kill.position) return null;
+                const x = (kill.position.x / 14800) * 100;
+                const y = 100 - (kill.position.y / 14800) * 100; // Flip Y axis for correct map orientation
+                const killer = participants[kill.killerId! - 1];
+                const victim = participants[kill.victimId! - 1];
+                
+                // Determine color based on killer's team - make dots
+                const teamColor = killer?.teamId === 100 
+                  ? 'bg-blue-500 border-blue-300' 
+                  : killer?.teamId === 200 
+                    ? 'bg-red-500 border-red-300' 
+                    : 'bg-gray-500 border-gray-300';
+                
+                const formatTime = (timestamp: number) => {
+                  const minutes = Math.floor(timestamp / 60000);
+                  const seconds = Math.floor((timestamp % 60000) / 1000);
+                  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                };
+                
+                return (
+                  <div
+                    key={index}
+                    className="group absolute cursor-pointer z-10"
+                    style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+                  >
+                    {/* Colored dot representing the kill */}
+                    <div className={`w-4 h-4 ${teamColor} rounded-full border-2 shadow-lg transform group-hover:scale-150 transition-transform`} />
+                    
+                    {/* Hover tooltip */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">
+                      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-gray-700">
+                        <div className="font-semibold mb-1">{formatTime(kill.timestamp)}</div>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-blue-400">{killer?.championName}</span>
+                          <span className="text-gray-400">killed</span>
+                          <span className="text-red-400">{victim?.championName}</span>
+                        </div>
+                        <div className="text-gray-400 text-[10px] mt-1">
+                          X: {Math.round(kill.position.x)}, Y: {Math.round(kill.position.y)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex items-center justify-center space-x-4 text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-500 rounded-full border border-blue-300"></div>
+                <span>Team 100 Kills</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-red-500 rounded-full border border-red-300"></div>
+                <span>Team 200 Kills</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Hotspots */}
+          {positionAnalysis.hotspots.length > 0 && (
+            <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Kill Hotspots</h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {positionAnalysis.hotspots.slice(0, 6).map((hotspot, index) => (
+                  <div key={index} className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 border border-orange-200 dark:border-orange-700">
+                    <div className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
+                      Hotspot #{index + 1}
+                    </div>
+                    <div className="text-sm font-bold text-orange-900 dark:text-orange-100">
+                      {hotspot.count} kills
+                    </div>
+                    <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                      X: {Math.round(hotspot.x)}, Y: {Math.round(hotspot.y)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter Buttons */}
       <div className="mb-6">

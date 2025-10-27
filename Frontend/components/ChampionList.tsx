@@ -133,6 +133,11 @@ export default function MatchLookup() {
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   
+  // Player Match History states
+  const [playerMatches, setPlayerMatches] = useState<any[]>([]);
+  const [loadingPlayerMatches, setLoadingPlayerMatches] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  
   // Riot API configuration
 
   // 3850859744
@@ -327,6 +332,44 @@ export default function MatchLookup() {
   useEffect(() => {
     fetchChampionData();
   }, []);
+
+  const fetchPlayerMatchHistory = async (puuid: string, playerName: string) => {
+    try {
+      setLoadingPlayerMatches(true);
+      setSelectedPlayer(playerName);
+      
+      // Use Next.js API route to avoid CORS issues
+      const response = await fetch(`/api/match-history?puuid=${puuid}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch match history: ${response.status}`);
+      }
+      
+      const matches = await response.json();
+      
+      // Transform data
+      const validMatches = matches
+        .filter((match: any) => match !== null && match.metadata && match.info)
+        .map((match: any) => ({
+          matchId: match.metadata.matchId,
+          gameCreation: match.info.gameCreation,
+          gameDuration: match.info.gameDuration,
+          gameMode: match.info.gameMode,
+          win: match.info.participants.find((p: any) => p.puuid === puuid)?.win || false,
+          champion: match.info.participants.find((p: any) => p.puuid === puuid)?.championName || 'Unknown',
+          kills: match.info.participants.find((p: any) => p.puuid === puuid)?.kills || 0,
+          deaths: match.info.participants.find((p: any) => p.puuid === puuid)?.deaths || 0,
+          assists: match.info.participants.find((p: any) => p.puuid === puuid)?.assists || 0,
+        }));
+      
+      setPlayerMatches(validMatches);
+    } catch (error) {
+      console.error('Error fetching player match history:', error);
+      alert('Failed to fetch player match history');
+    } finally {
+      setLoadingPlayerMatches(false);
+    }
+  };
 
   const fetchAIAnalysis = async () => {
     if (!matchData) return;
@@ -607,9 +650,9 @@ export default function MatchLookup() {
                       
                       {/* Clickable Champion Card */}
                       {participant.championData ? (
-                        <Link 
-                          href={`/champion/${participant.championData.id}`}
-                          className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105"
+                        <div 
+                          onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                          className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105 cursor-pointer"
                         >
                           <div className="flex items-center space-x-4">
                             <div className="relative">
@@ -638,7 +681,7 @@ export default function MatchLookup() {
                               </div>
                             </div>
                           </div>
-                        </Link>
+                        </div>
                       ) : (
                         <div className="mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl">
                           <p className="font-medium text-gray-900 dark:text-white">
@@ -790,9 +833,9 @@ export default function MatchLookup() {
                           
                           {/* Clickable Champion Card */}
                           {participant.championData ? (
-                            <Link 
-                              href={`/champion/${participant.championData.id}`}
-                              className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105"
+                            <div 
+                              onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                              className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105 cursor-pointer"
                             >
                               <div className="flex items-center space-x-4">
                                 <div className="relative">
@@ -821,7 +864,7 @@ export default function MatchLookup() {
                                   </div>
                                 </div>
                               </div>
-                            </Link>
+                            </div>
                           ) : (
                             <div className="mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl">
                               <p className="font-medium text-gray-900 dark:text-white">
@@ -1023,6 +1066,84 @@ export default function MatchLookup() {
                 timeline={matchData.timeline} 
                 participants={matchData.info.participants}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Player Match History Modal */}
+        {selectedPlayer && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-6xl max-h-[90vh] overflow-y-auto border-2 border-gray-200 dark:border-gray-700 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="text-4xl">📊</div>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Match History: {selectedPlayer}</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedPlayer(null);
+                    setPlayerMatches([]);
+                  }}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              {loadingPlayerMatches ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="ml-4 text-gray-600 dark:text-gray-400">Loading match history...</span>
+                </div>
+              ) : playerMatches.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {playerMatches.map((match, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer ${
+                        match.win
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-700'
+                          : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-700'
+                      }`}
+                      onClick={() => {
+                        setMatchId(match.matchId);
+                        fetchMatchData();
+                        setSelectedPlayer(null);
+                        setPlayerMatches([]);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`px-2 py-1 rounded text-xs font-semibold ${
+                          match.win ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                          {match.win ? 'Victory' : 'Defeat'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(match.gameCreation).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="font-bold text-lg text-gray-900 dark:text-white mb-1">
+                        {match.champion}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        {match.gameMode}
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="text-gray-900 dark:text-white font-semibold">
+                          {match.kills}/{match.deaths}/{match.assists}
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400">
+                          {Math.floor(match.gameDuration / 60)}:{(match.gameDuration % 60).toString().padStart(2, '0')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  No matches found
+                </div>
+              )}
             </div>
           </div>
         )}
