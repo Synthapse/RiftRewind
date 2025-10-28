@@ -123,7 +123,7 @@ export default function MatchLookup() {
   const [matchError, setMatchError] = useState<string | null>(null);
   
   // Tab state
-  const [activeTab, setActiveTab] = useState<'match' | 'timeline'>('match');
+  const [activeTab, setActiveTab] = useState<'match' | 'timeline' | 'ai-analysis'>('match');
   
   // Champion mapping states
   const [championMap, setChampionMap] = useState<Record<string, Champion>>({});
@@ -131,12 +131,14 @@ export default function MatchLookup() {
   // AI Analysis states
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [showAiModal, setShowAiModal] = useState(false);
   
   // Player Match History states
   const [playerMatches, setPlayerMatches] = useState<any[]>([]);
   const [loadingPlayerMatches, setLoadingPlayerMatches] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  
+  // Accordion states for detailed stats
+  const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
   
   // Riot API configuration
 
@@ -144,7 +146,7 @@ export default function MatchLookup() {
 
 
 
-  const API_KEY = "RGAPI-61e4f1c7-f5d9-4cd9-a285-0e84b66428f6";
+  const API_KEY = "RGAPI-4cdeea9a-0734-4a00-8d42-b5d98005d227";
   const platform = "eun1"; // EUNE server
 
   // Function to fetch champion data for mapping
@@ -338,16 +340,37 @@ export default function MatchLookup() {
       setLoadingPlayerMatches(true);
       setSelectedPlayer(playerName);
       
-      // Use Next.js API route to avoid CORS issues
-      const response = await fetch(`/api/match-history?puuid=${puuid}`);
+      console.log('Fetching match history for PUUID:', puuid);
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch match history: ${response.status}`);
+      // Fetch match IDs by PUUID directly from Riot API
+      const matchIdsUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=4&api_key=${API_KEY}`;
+      const matchIdsResponse = await fetch(matchIdsUrl);
+      
+      if (!matchIdsResponse.ok) {
+        throw new Error(`Failed to fetch match IDs: ${matchIdsResponse.status}`);
       }
       
-      const matches = await response.json();
+      const matchIds: string[] = await matchIdsResponse.json();
+      console.log('Found match IDs:', matchIds);
       
-      // Transform data
+      // Fetch all matches in parallel
+      const matchPromises = matchIds.map(matchId => 
+        fetch(`https://europe.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${API_KEY}`)
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch match ${matchId}: ${res.status}`);
+            }
+            return res.json();
+          })
+          .catch(err => {
+            console.error(`Failed to fetch match ${matchId}:`, err);
+            return null;
+          })
+      );
+      
+      const matches = await Promise.all(matchPromises);
+      
+      // Filter out null results and transform data
       const validMatches = matches
         .filter((match: any) => match !== null && match.metadata && match.info)
         .map((match: any) => ({
@@ -362,10 +385,11 @@ export default function MatchLookup() {
           assists: match.info.participants.find((p: any) => p.puuid === puuid)?.assists || 0,
         }));
       
+      console.log('Transformed matches:', validMatches);
       setPlayerMatches(validMatches);
     } catch (error) {
       console.error('Error fetching player match history:', error);
-      alert('Failed to fetch player match history');
+      alert('Failed to fetch player match history. Please check your API key and try again.');
     } finally {
       setLoadingPlayerMatches(false);
     }
@@ -377,68 +401,86 @@ export default function MatchLookup() {
     try {
       setAiLoading(true);
       
-      // Transform match data for Lambda
-      const lambdaData = {
-        matchData: {
-          matchId: matchData.metadata.matchId,
-          gameDuration: matchData.info.gameDuration,
-          gameMode: matchData.info.gameMode,
-          queueId: matchData.info.queueId,
-          teams: matchData.info.participants.reduce((acc: any[], participant: any) => {
-            let team = acc.find((t) => t.teamId === participant.teamId);
-            if (!team) {
-              team = {
-                teamId: participant.teamId,
-                win: participant.win,
-                participants: [],
-              };
-              acc.push(team);
-            }
-            team.participants.push({
-              championName: participant.championName,
-              summonerName: participant.summonerName,
-              kills: participant.kills,
-              deaths: participant.deaths,
-              assists: participant.assists,
-              cs: participant.totalMinionsKilled,
-              gold: participant.goldEarned,
-              damage: participant.totalDamageDealtToChampions,
-              visionScore: participant.visionScore,
-              level: participant.champLevel,
-              position: participant.teamPosition,
-            });
-            return acc;
-          }, []),
-          objectives: {
-            baronKills: matchData.info.teams[0]?.objectives?.baron?.kills || 0,
-            dragonKills: matchData.info.teams[0]?.objectives?.dragon?.kills || 0,
-            riftHeraldKills: 0,
-            towerKills: matchData.info.teams[0]?.objectives?.tower?.kills || 0,
-          },
-          timeline: matchData.timeline || null,
-        },
-      };
+      // Determine winning and losing teams
+      const winningTeam = matchData.info.teams.find(team => team.win);
+      const losingTeam = matchData.info.teams.find(team => !team.win);
+      
+      // Get participants for each team
+      const winningTeamParticipants = matchData.info.participants.filter(p => p.teamId === winningTeam?.teamId);
+      const losingTeamParticipants = matchData.info.participants.filter(p => p.teamId === losingTeam?.teamId);
+      
+      // Construct the prompt from match data
+      const prompt = `You are a **League of Legends Match Analyzer**. Analyze this match and provide:
+- Strategic insights
+- Team composition breakdown
+- Key turning points
+- Suggestions for improvement
+
+Use markdown headers (#, ##, ###) and bullet points (-) for clarity.
+
+Match Information:
+- Match ID: ${matchData.metadata.matchId}
+- Duration: ${Math.floor(matchData.info.gameDuration / 60)} minutes ${matchData.info.gameDuration % 60} seconds
+- Game Mode: ${matchData.info.gameMode}
+- Queue ID: ${matchData.info.queueId}
+
+Winning Team (${winningTeam?.teamId}):
+${winningTeamParticipants.map(p => 
+  `- ${p.championName} (${p.summonerName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
+  `${p.totalMinionsKilled} CS, ${p.goldEarned} Gold, ${p.totalDamageDealtToChampions} Damage, ${p.visionScore} Vision Score`
+).join('\n')}
+
+Losing Team (${losingTeam?.teamId}):
+${losingTeamParticipants.map(p => 
+  `- ${p.championName} (${p.summonerName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
+  `${p.totalMinionsKilled} CS, ${p.goldEarned} Gold, ${p.totalDamageDealtToChampions} Damage, ${p.visionScore} Vision Score`
+).join('\n')}
+
+Team Objectives:
+- Baron Kills: ${matchData.info.teams[0]?.objectives?.baron?.kills || 0}
+- Dragon Kills: ${matchData.info.teams[0]?.objectives?.dragon?.kills || 0}
+- Rift Herald Kills: 0
+- Tower Kills: ${matchData.info.teams[0]?.objectives?.tower?.kills || 0}`;
+
+      // Send only the prompt to Lambda
+      const lambdaData = { prompt: prompt };
 
       const APIUrl = "https://or0v98ycwe.execute-api.us-east-1.amazonaws.com/prod/league-ai-analytics-data-ingest";
       const response = await fetch(APIUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lambdaData),
       });
-
       if (!response.ok) {
         throw new Error(`Lambda error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('Lambda response:', result);
 
-      if (result.statusCode === 200 && result.body) {
-        setAiAnalysis(result.body);
-        setShowAiModal(true);
+      // Handle different response formats
+      let analysisText = null;
+      
+      if (result.success && result.response) {
+        analysisText = result.response;
+      } else if (result.body) {
+        analysisText = result.body;
+      } else if (typeof result === 'string') {
+        analysisText = result;
+      }
+      
+      if (analysisText) {
+        console.log('Setting AI analysis:', analysisText);
+        // Save the response to a file
+        await saveGeminiResponse(matchData.metadata.matchId, analysisText);
+        
+        // Display the analysis in the interface
+        setAiAnalysis(analysisText);
+        setActiveTab('ai-analysis');
+        console.log('AI analysis set and tab switched to ai-analysis');
       } else {
-        throw new Error(result.body || 'Failed to get analysis');
+        console.error('No analysis text found in response:', result);
+        throw new Error('No analysis text found in response');
       }
     } catch (error) {
       console.error('AI Analysis error:', error);
@@ -448,6 +490,45 @@ export default function MatchLookup() {
     }
   };
 
+  const saveGeminiResponse = async (matchId: string, content: string) => {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `gemini-analysis-match-${matchId}-${timestamp}.txt`;
+      
+      const response = await fetch('/api/save-gemini-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename,
+          content,
+          matchId,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save Gemini response to file');
+      } else {
+        console.log('Gemini response saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving Gemini response:', error);
+    }
+  };
+
+  const togglePlayerExpansion = (puuid: string) => {
+    setExpandedPlayers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(puuid)) {
+        newSet.delete(puuid);
+      } else {
+        newSet.add(puuid);
+      }
+      return newSet;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -525,6 +606,16 @@ export default function MatchLookup() {
                     Timeline
                   </button>
                 )}
+                <button
+                  onClick={() => setActiveTab('ai-analysis')}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                    activeTab === 'ai-analysis'
+                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  🤖 AI Analysis
+                </button>
                 {matchData.timeline && (
                   <a
                     href={`/match/${matchData.metadata.matchId}/rewind`}
@@ -623,369 +714,402 @@ export default function MatchLookup() {
               </div>
               
               
-              {/* Team 100 (Blue Team) */}
-              <div className="mb-6">
-                <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Team 100</h4>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {matchData.info.participants
-                    .filter(participant => participant.teamId === 100)
-                    .map((participant, index) => {
-                      return (
-                        <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h5 className="font-bold text-lg text-gray-900 dark:text-white">
-                            {participant.summonerName}
-                          </h5>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
-                              {participant.win ? 'Victory' : 'Defeat'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Clickable Champion Card */}
-                      {participant.championData ? (
-                        <div 
-                          onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
-                          className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105 cursor-pointer"
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className="relative">
-                              <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
-                                <img
-                                  src={`https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${participant.championData.image.full}`}
-                                  alt={participant.championName}
-                                  className="w-14 h-14 object-cover"
-                                />
-                              </div>
-                              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
-                                {participant.champLevel}
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-lg text-gray-900 dark:text-white">
-                                {participant.championName}
-                            </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-300">
-                                {participant.championData.title}
-                              </p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{participant.individualPosition}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{participant.role}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {participant.championName} (Level {participant.champLevel})
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{participant.individualPosition}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{participant.role}</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Basic Stats */}
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {participant.kills}/{participant.deaths}/{participant.assists}
-                          </div>
-                          <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">KDA</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {participant.totalMinionsKilled}
-                          </div>
-                          <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">CS</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {Math.floor(participant.goldEarned / 1000)}k
-                          </div>
-                          <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Gold</div>
-                        </div>
-                      </div>
-
-                      {/* Detailed Stats */}
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Damage Dealt:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealt.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Damage to Champs:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealtToChampions.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Damage Taken:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageTaken.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Healing:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.totalHeal.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Vision Score:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.visionScore}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Wards Placed:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.wardsPlaced}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Wards Killed:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.wardsKilled}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Turret Kills:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.turretKills}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Objectives and Achievements */}
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Dragon Kills:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.dragonKills}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Baron Kills:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.baronKills}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Killing Sprees:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.killingSprees}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Largest Spree:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.largestKillingSpree}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">First Blood:</span>
-                            <span className={`font-medium ${participant.firstBloodKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {participant.firstBloodKill ? 'Yes' : 'No'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">First Tower:</span>
-                            <span className={`font-medium ${participant.firstTowerKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {participant.firstTowerKill ? 'Yes' : 'No'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Time Played:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Math.floor(participant.timePlayed / 60)}:{(participant.timePlayed % 60).toString().padStart(2, '0')}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Summoner Level:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{participant.summonerLevel}</span>
-                          </div>
-                        </div>
-                      </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Team 200 */}
-              <div className="mb-6">
-                <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Team 200</h4>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {matchData.info.participants
-                    .filter(participant => participant.teamId === 200)
-                    .map((participant, index) => {
-                      return (
-                        <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h5 className="font-bold text-lg text-gray-900 dark:text-white">
-                                {participant.summonerName}
-                              </h5>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
-                                  {participant.win ? 'Victory' : 'Defeat'}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Clickable Champion Card */}
-                          {participant.championData ? (
-                            <div 
-                              onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
-                              className="block mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 transform hover:scale-105 cursor-pointer"
-                            >
-                              <div className="flex items-center space-x-4">
-                                <div className="relative">
-                                  <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
-                                    <img
-                                      src={`https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${participant.championData.image.full}`}
-                                      alt={participant.championName}
-                                      className="w-14 h-14 object-cover"
-                                    />
-                                  </div>
-                                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
-                                    {participant.champLevel}
+              {/* Teams Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                {/* Team 100 (Left Side) */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xl font-bold text-gray-900 dark:text-white">Team 100</h4>
+                    <div className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
+                      {matchData.info.teams.find(t => t.teamId === 100)?.win ? 'Victory' : 'Defeat'}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {matchData.info.participants
+                      .filter(participant => participant.teamId === 100)
+                      .map((participant, index) => {
+                        const isExpanded = expandedPlayers.has(participant.puuid);
+                        return (
+                          <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                            {/* Player Header */}
+                            <div className="p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                  {participant.championData ? (
+                                    <div className="relative">
+                                      <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                                        <img
+                                          src={`https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${participant.championData.image.full}`}
+                                          alt={participant.championName}
+                                          className="w-10 h-10 object-cover"
+                                        />
+                                      </div>
+                                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
+                                        {participant.champLevel}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                                      <span className="text-xs font-bold text-gray-600 dark:text-gray-300">?</span>
+                                    </div>
+                                  )}
+                                  
+                                  <div>
+                                    <h5 className="font-bold text-lg text-gray-900 dark:text-white">
+                                      {participant.summonerName}
+                                    </h5>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                                      {participant.championName} • {participant.individualPosition}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="flex-1">
-                                  <p className="font-bold text-lg text-gray-900 dark:text-white">
-                                    {participant.championName}
-                                  </p>
-                                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                                    {participant.championData.title}
-                                  </p>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{participant.individualPosition}</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{participant.role}</span>
+                                
+                                <div className="flex items-center space-x-3">
+                                  {/* Basic Stats */}
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {participant.kills}/{participant.deaths}/{participant.assists}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">KDA</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {participant.totalMinionsKilled}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">CS</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {Math.floor(participant.goldEarned / 1000)}k
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">Gold</div>
+                                  </div>
+                                  
+                                  {/* Expand/Collapse Button */}
+                                  <button
+                                    onClick={() => togglePlayerExpansion(participant.puuid)}
+                                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                  >
+                                    <svg
+                                      className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${
+                                        isExpanded ? 'rotate-180' : ''
+                                      }`}
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              {/* Clickable Champion Card for Match History */}
+                              {participant.championData && (
+                                <div 
+                                  onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                                  className="block p-3 bg-white/60 dark:bg-gray-700/60 rounded-lg hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 cursor-pointer"
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <div className="text-2xl">📊</div>
+                                    <div>
+                                      <p className="font-medium text-gray-900 dark:text-white">View Match History</p>
+                                      <p className="text-xs text-gray-600 dark:text-gray-400">Click to see recent matches</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Detailed Stats (Accordion) */}
+                            {isExpanded && (
+                              <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/40 dark:bg-gray-800/40">
+                                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage Dealt:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealt.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage to Champs:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealtToChampions.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage Taken:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageTaken.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Healing:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalHeal.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Vision Score:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.visionScore}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Wards Placed:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.wardsPlaced}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Wards Killed:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.wardsKilled}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Turret Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.turretKills}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Dragon Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.dragonKills}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Baron Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.baronKills}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Killing Sprees:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.killingSprees}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Largest Spree:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.largestKillingSpree}</span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">First Blood:</span>
+                                      <span className={`font-medium ${participant.firstBloodKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {participant.firstBloodKill ? 'Yes' : 'No'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">First Tower:</span>
+                                      <span className={`font-medium ${participant.firstTowerKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {participant.firstTowerKill ? 'Yes' : 'No'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Time Played:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{Math.floor(participant.timePlayed / 60)}:{(participant.timePlayed % 60).toString().padStart(2, '0')}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Summoner Level:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.summonerLevel}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="mb-4 p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl">
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {participant.championName} (Level {participant.champLevel})
-                              </p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{participant.individualPosition}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{participant.role}</span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Basic Stats */}
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {participant.kills}/{participant.deaths}/{participant.assists}
-                              </div>
-                              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">KDA</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {participant.totalMinionsKilled}
-                              </div>
-                              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">CS</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {Math.floor(participant.goldEarned / 1000)}k
-                              </div>
-                              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Gold</div>
-                            </div>
+                            )}
                           </div>
+                        );
+                      })}
+                  </div>
+                </div>
 
-                          {/* Detailed Stats */}
-                          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Damage Dealt:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealt.toLocaleString()}</span>
+                {/* Team 200 (Right Side) */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xl font-bold text-gray-900 dark:text-white">Team 200</h4>
+                    <div className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
+                      {matchData.info.teams.find(t => t.teamId === 200)?.win ? 'Victory' : 'Defeat'}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {matchData.info.participants
+                      .filter(participant => participant.teamId === 200)
+                      .map((participant, index) => {
+                        const isExpanded = expandedPlayers.has(participant.puuid);
+                        return (
+                          <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                            {/* Player Header */}
+                            <div className="p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                  {participant.championData ? (
+                                    <div className="relative">
+                                      <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                                        <img
+                                          src={`https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${participant.championData.image.full}`}
+                                          alt={participant.championName}
+                                          className="w-10 h-10 object-cover"
+                                        />
+                                      </div>
+                                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-900 dark:bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-white dark:text-gray-900">
+                                        {participant.champLevel}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                                      <span className="text-xs font-bold text-gray-600 dark:text-gray-300">?</span>
+                                    </div>
+                                  )}
+                                  
+                                  <div>
+                                    <h5 className="font-bold text-lg text-gray-900 dark:text-white">
+                                      {participant.summonerName}
+                                    </h5>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                                      {participant.championName} • {participant.individualPosition}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center space-x-3">
+                                  {/* Basic Stats */}
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {participant.kills}/{participant.deaths}/{participant.assists}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">KDA</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {participant.totalMinionsKilled}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">CS</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {Math.floor(participant.goldEarned / 1000)}k
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">Gold</div>
+                                  </div>
+                                  
+                                  {/* Expand/Collapse Button */}
+                                  <button
+                                    onClick={() => togglePlayerExpansion(participant.puuid)}
+                                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                  >
+                                    <svg
+                                      className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${
+                                        isExpanded ? 'rotate-180' : ''
+                                      }`}
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Damage to Champs:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealtToChampions.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Damage Taken:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageTaken.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Healing:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.totalHeal.toLocaleString()}</span>
-                              </div>
+                              
+                              {/* Clickable Champion Card for Match History */}
+                              {participant.championData && (
+                                <div 
+                                  onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                                  className="block p-3 bg-white/60 dark:bg-gray-700/60 rounded-lg hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 cursor-pointer"
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <div className="text-2xl">📊</div>
+                                    <div>
+                                      <p className="font-medium text-gray-900 dark:text-white">View Match History</p>
+                                      <p className="text-xs text-gray-600 dark:text-gray-400">Click to see recent matches</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Vision Score:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.visionScore}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Wards Placed:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.wardsPlaced}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Wards Killed:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.wardsKilled}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Turret Kills:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.turretKills}</span>
-                              </div>
-                            </div>
-                          </div>
+                            
+                            {/* Detailed Stats (Accordion) */}
+                            {isExpanded && (
+                              <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/40 dark:bg-gray-800/40">
+                                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage Dealt:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealt.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage to Champs:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageDealtToChampions.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Damage Taken:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalDamageTaken.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Healing:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.totalHeal.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Vision Score:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.visionScore}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Wards Placed:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.wardsPlaced}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Wards Killed:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.wardsKilled}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Turret Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.turretKills}</span>
+                                    </div>
+                                  </div>
+                                </div>
 
-                          {/* Objectives and Achievements */}
-                          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Dragon Kills:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.dragonKills}</span>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Dragon Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.dragonKills}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Baron Kills:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.baronKills}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Killing Sprees:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.killingSprees}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Largest Spree:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.largestKillingSpree}</span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">First Blood:</span>
+                                      <span className={`font-medium ${participant.firstBloodKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {participant.firstBloodKill ? 'Yes' : 'No'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">First Tower:</span>
+                                      <span className={`font-medium ${participant.firstTowerKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {participant.firstTowerKill ? 'Yes' : 'No'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Time Played:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{Math.floor(participant.timePlayed / 60)}:{(participant.timePlayed % 60).toString().padStart(2, '0')}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-400">Summoner Level:</span>
+                                      <span className="font-medium text-gray-900 dark:text-white">{participant.summonerLevel}</span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Baron Kills:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.baronKills}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Killing Sprees:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.killingSprees}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Largest Spree:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.largestKillingSpree}</span>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">First Blood:</span>
-                                <span className={`font-medium ${participant.firstBloodKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                  {participant.firstBloodKill ? 'Yes' : 'No'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">First Tower:</span>
-                                <span className={`font-medium ${participant.firstTowerKill ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                  {participant.firstTowerKill ? 'Yes' : 'No'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Time Played:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{Math.floor(participant.timePlayed / 60)}:{(participant.timePlayed % 60).toString().padStart(2, '0')}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Summoner Level:</span>
-                                <span className="font-medium text-gray-900 dark:text-white">{participant.summonerLevel}</span>
-                              </div>
-                            </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                  </div>
                 </div>
               </div>
 
@@ -1070,6 +1194,133 @@ export default function MatchLookup() {
           </div>
         )}
 
+        {/* AI Analysis Tab Content */}
+        {matchData && activeTab === 'ai-analysis' && (
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="text-4xl">🤖</div>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">AI Match Analysis</h2>
+                </div>
+                <button
+                  onClick={fetchAIAnalysis}
+                  disabled={aiLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔄</span>
+                      <span>Refresh Analysis</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {aiAnalysis ? (
+                <div className="prose dark:prose-invert max-w-none">
+                  <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {aiAnalysis.split('\n').map((line, index) => {
+                      // Handle main headers
+                      if (line.startsWith('# ')) {
+                        return (
+                          <h1 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-6 mt-8 border-b-2 border-gray-200 dark:border-gray-600 pb-2">
+                            {line.substring(2)}
+                          </h1>
+                        );
+                      }
+                      // Handle section headers
+                      if (line.startsWith('## ')) {
+                        return (
+                          <h2 key={index} className="text-3xl font-bold text-gray-900 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-600 pb-2">
+                            {line.substring(3)}
+                          </h2>
+                        );
+                      }
+                      // Handle subsection headers
+                      if (line.startsWith('### ')) {
+                        return (
+                          <h3 key={index} className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 mt-4">
+                            {line.substring(4)}
+                          </h3>
+                        );
+                      }
+                      // Handle bold text with colons (like "**Strengths:**")
+                      if (line.includes('**') && line.includes(':')) {
+                        const parts = line.split('**');
+                        return (
+                          <p key={index} className="mb-3">
+                            <strong className="font-semibold text-gray-900 dark:text-white text-lg">
+                              {parts[1]}:
+                            </strong>
+                            {parts[2] && <span className="ml-2">{parts[2]}</span>}
+                          </p>
+                        );
+                      }
+                      // Handle bullet points
+                      if (line.startsWith('- ')) {
+                        return (
+                          <li key={index} className="ml-6 mb-2 list-disc text-gray-700 dark:text-gray-300">
+                            {line.substring(2)}
+                          </li>
+                        );
+                      }
+                      // Handle numbered lists
+                      if (/^\d+\.\s/.test(line)) {
+                        return (
+                          <li key={index} className="ml-6 mb-2 list-decimal text-gray-700 dark:text-gray-300">
+                            {line.replace(/^\d+\.\s/, '')}
+                          </li>
+                        );
+                      }
+                      // Handle empty lines
+                      if (line.trim() === '') {
+                        return <br key={index} />;
+                      }
+                      // Handle regular paragraphs
+                      return (
+                        <p key={index} className="mb-4 text-gray-700 dark:text-gray-300">
+                          {line}
+                        </p>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🤖</div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">No Analysis Available</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Click the "AI Analysis" button above to generate a strategic analysis of this match.
+                  </p>
+                  <button
+                    onClick={fetchAIAnalysis}
+                    disabled={aiLoading}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium mx-auto"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🚀</span>
+                        <span>Generate Analysis</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Player Match History Modal */}
         {selectedPlayer && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
@@ -1148,78 +1399,6 @@ export default function MatchLookup() {
           </div>
         )}
 
-        {/* AI Analysis Modal */}
-        {showAiModal && aiAnalysis && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-4xl max-h-[90vh] overflow-y-auto border-2 border-gray-200 dark:border-gray-700 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="text-4xl">🤖</div>
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">AI Match Analysis</h2>
-                </div>
-                <button
-                  onClick={() => setShowAiModal(false)}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="prose dark:prose-invert max-w-none">
-                <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                  {aiAnalysis.split('\n').map((line, index) => {
-                    if (line.startsWith('# ')) {
-                      return (
-                        <h1 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-6 mt-8">
-                          {line.substring(2)}
-                        </h1>
-                      );
-                    }
-                    if (line.startsWith('## ')) {
-                      return (
-                        <h2 key={index} className="text-3xl font-bold text-gray-900 dark:text-white mb-4 mt-6">
-                          {line.substring(3)}
-                        </h2>
-                      );
-                    }
-                    if (line.startsWith('### ')) {
-                      return (
-                        <h3 key={index} className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 mt-4">
-                          {line.substring(4)}
-                        </h3>
-                      );
-                    }
-                    if (line.includes('**') && line.includes(':')) {
-                      const parts = line.split('**');
-                      return (
-                        <p key={index} className="mb-2">
-                          <strong className="font-semibold text-gray-900 dark:text-white">
-                            {parts[1]}:
-                          </strong>
-                          {parts[2] && <span>{parts[2]}</span>}
-                        </p>
-                      );
-                    }
-                    if (line.startsWith('- ')) {
-                      return (
-                        <li key={index} className="ml-6 mb-1 list-disc">
-                          {line.substring(2)}
-                        </li>
-                      );
-                    }
-                    if (line.trim() === '') {
-                      return <br key={index} />;
-                    }
-                    return (
-                      <p key={index} className="mb-4">
-                        {line}
-                      </p>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
