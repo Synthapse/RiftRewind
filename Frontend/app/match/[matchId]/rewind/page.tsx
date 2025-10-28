@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import MatchRewind from '@/components/MatchRewind';
+import { RIOT_API_CONFIG } from '@/lib/config';
 
 interface Participant {
   summonerName: string;
@@ -43,7 +44,7 @@ export default function RewindPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_KEY = "RGAPI-61e4f1c7-f5d9-4cd9-a285-0e84b66428f6";
+  const API_KEY = RIOT_API_CONFIG.API_KEY;
 
   useEffect(() => {
     const fetchMatchData = async () => {
@@ -54,7 +55,7 @@ export default function RewindPage() {
         setError(null);
 
         // Fetch match data
-        const matchUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${API_KEY}`;
+        const matchUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${API_KEY}`;
         const matchResponse = await fetch(matchUrl);
 
         if (!matchResponse.ok) {
@@ -64,7 +65,7 @@ export default function RewindPage() {
         const matchData = await matchResponse.json();
 
         // Fetch timeline data
-        const timelineUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline?api_key=${API_KEY}`;
+        const timelineUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline?api_key=${API_KEY}`;
         const timelineResponse = await fetch(timelineUrl);
 
         if (!timelineResponse.ok) {

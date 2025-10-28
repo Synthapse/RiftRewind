@@ -5,6 +5,7 @@ import { Champion, ChampionData } from '@/types/champion';
 import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
 import MatchTimeline from './MatchTimeline';
+import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 
 interface MatchData {
   metadata: {
@@ -131,6 +132,9 @@ export default function MatchLookup() {
   // AI Analysis states
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [championAnalysis, setChampionAnalysis] = useState<string | null>(null);
+  const [championAnalysisLoading, setChampionAnalysisLoading] = useState(false);
+  const [selectedChampionForAnalysis, setSelectedChampionForAnalysis] = useState<string | null>(null);
   
   // Player Match History states
   const [playerMatches, setPlayerMatches] = useState<any[]>([]);
@@ -141,13 +145,8 @@ export default function MatchLookup() {
   const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
   
   // Riot API configuration
-
-  // 3850859744
-
-
-
-  const API_KEY = "RGAPI-4cdeea9a-0734-4a00-8d42-b5d98005d227";
-  const platform = "eun1"; // EUNE server
+  const API_KEY = RIOT_API_CONFIG.API_KEY;
+  const platform = RIOT_API_CONFIG.PLATFORM;
 
   // Function to fetch champion data for mapping
   const fetchChampionData = async () => {
@@ -181,7 +180,7 @@ export default function MatchLookup() {
       const fullMatchId = matchId;
       
       // Match endpoint with API key as query parameter
-      const matchUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${fullMatchId}?api_key=${API_KEY}`;
+      const matchUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}?api_key=${API_KEY}`;
       
       const response = await fetch(matchUrl);
       
@@ -198,7 +197,7 @@ export default function MatchLookup() {
       const data = await response.json();
       
       // Fetch timeline data
-      const timelineUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline?api_key=${API_KEY}`;
+      const timelineUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline?api_key=${API_KEY}`;
       let timelineData = null;
       
       try {
@@ -343,7 +342,7 @@ export default function MatchLookup() {
       console.log('Fetching match history for PUUID:', puuid);
       
       // Fetch match IDs by PUUID directly from Riot API
-      const matchIdsUrl = `https://europe.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=4&api_key=${API_KEY}`;
+      const matchIdsUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=4&api_key=${API_KEY}`;
       const matchIdsResponse = await fetch(matchIdsUrl);
       
       if (!matchIdsResponse.ok) {
@@ -355,7 +354,7 @@ export default function MatchLookup() {
       
       // Fetch all matches in parallel
       const matchPromises = matchIds.map(matchId => 
-        fetch(`https://europe.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${API_KEY}`)
+        fetch(`https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${API_KEY}`)
           .then(res => {
             if (!res.ok) {
               throw new Error(`Failed to fetch match ${matchId}: ${res.status}`);
@@ -445,7 +444,7 @@ Team Objectives:
       // Send only the prompt to Lambda
       const lambdaData = { prompt: prompt };
 
-      const APIUrl = "https://or0v98ycwe.execute-api.us-east-1.amazonaws.com/prod/league-ai-analytics-data-ingest";
+      const APIUrl = LAMBDA_CONFIG.AI_ANALYSIS_URL;
       const response = await fetch(APIUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -528,6 +527,186 @@ Team Objectives:
       }
       return newSet;
     });
+  };
+
+  const fetchChampionAnalysis = async (participant: any) => {
+    if (!matchData) return;
+
+    try {
+      setChampionAnalysisLoading(true);
+      setSelectedChampionForAnalysis(participant.puuid);
+      
+      // Get player-specific events from timeline
+      const playerEvents = matchData.timeline?.info.frames.flatMap(frame => 
+        frame.events.filter((event: any) => 
+          event.participantId === participant.participantId || 
+          (event.killerId === participant.participantId) ||
+          (event.victimId === participant.participantId) ||
+          (event.assistingParticipantIds && event.assistingParticipantIds.includes(participant.participantId))
+        )
+      ) || [];
+
+      // Get team context
+      const team = matchData.info.teams.find(t => t.teamId === participant.teamId);
+      const teammates = matchData.info.participants.filter(p => p.teamId === participant.teamId && p.puuid !== participant.puuid);
+      const enemies = matchData.info.participants.filter(p => p.teamId !== participant.teamId);
+
+      // Construct champion-specific prompt
+      const prompt = `You are a **League of Legends Champion Performance Analyzer**. Analyze this specific player's performance in the match and provide:
+
+- Individual performance assessment
+- Champion-specific strengths and weaknesses
+- Decision making analysis
+- Improvement suggestions
+- Micro and macro play evaluation
+
+Use markdown headers (#, ##, ###) and bullet points (-) for clarity.
+
+## Player Information:
+- **Summoner Name:** ${participant.summonerName}
+- **Champion:** ${participant.championName} (Level ${participant.champLevel})
+- **Position:** ${participant.individualPosition} / ${participant.role}
+- **Team:** ${participant.teamId} (${team?.win ? 'Victory' : 'Defeat'})
+
+## Match Context:
+- **Match ID:** ${matchData.metadata.matchId}
+- **Duration:** ${Math.floor(matchData.info.gameDuration / 60)} minutes ${matchData.info.gameDuration % 60} seconds
+- **Game Mode:** ${matchData.info.gameMode}
+
+## Player Performance:
+- **KDA:** ${participant.kills}/${participant.deaths}/${participant.assists}
+- **CS:** ${participant.totalMinionsKilled}
+- **Gold Earned:** ${participant.goldEarned}
+- **Damage Dealt to Champions:** ${participant.totalDamageDealtToChampions}
+- **Damage Taken:** ${participant.totalDamageTaken}
+- **Vision Score:** ${participant.visionScore}
+- **Wards Placed:** ${participant.wardsPlaced}
+- **Wards Killed:** ${participant.wardsKilled}
+
+## Team Composition:
+**Teammates:**
+${teammates.map(tm => `- ${tm.championName} (${tm.summonerName}): ${tm.kills}/${tm.deaths}/${tm.assists} KDA`).join('\n')}
+
+**Enemies:**
+${enemies.map(enemy => `- ${enemy.championName} (${enemy.summonerName}): ${enemy.kills}/${enemy.deaths}/${enemy.assists} KDA`).join('\n')}
+
+## Key Events (from timeline):
+${playerEvents.slice(0, 20).map((event, index) => {
+  const eventType = event.type;
+  const timestamp = Math.floor(event.timestamp / 60000);
+  let description = '';
+  
+  switch(eventType) {
+    case 'CHAMPION_KILL':
+      description = `Kill: ${event.killerId === participant.participantId ? 'Killed' : 'Killed by'} ${event.victimId === participant.participantId ? 'player' : 'enemy'}`;
+      break;
+    case 'CHAMPION_DEATH':
+      description = `Death at ${timestamp}min`;
+      break;
+    case 'WARD_PLACED':
+      description = `Ward placed (${event.wardType})`;
+      break;
+    case 'WARD_KILL':
+      description = `Ward killed`;
+      break;
+    case 'BUILDING_KILL':
+      description = `Building ${event.killerId === participant.participantId ? 'destroyed' : 'lost'}`;
+      break;
+    case 'ELITE_MONSTER_KILL':
+      description = `Monster killed: ${event.monsterType || 'Unknown'}`;
+      break;
+    default:
+      description = `${eventType} event`;
+  }
+  
+  return `${index + 1}. [${timestamp}min] ${description}`;
+}).join('\n')}
+
+## Objectives:
+- **Dragon Kills:** ${participant.dragonKills}
+- **Baron Kills:** ${participant.baronKills}
+- **Turret Kills:** ${participant.turretKills}
+- **First Blood:** ${participant.firstBloodKill ? 'Yes' : 'No'}
+- **First Tower:** ${participant.firstTowerKill ? 'Yes' : 'No'}
+
+Please provide a detailed analysis focusing on this specific player's performance, decision-making, and areas for improvement.`;
+
+      // Send only the prompt to Lambda
+      const lambdaData = { prompt: prompt };
+
+      const APIUrl = LAMBDA_CONFIG.AI_ANALYSIS_URL;
+      const response = await fetch(APIUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lambdaData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Lambda error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Champion analysis Lambda response:', result);
+
+      // Handle different response formats
+      let analysisText = null;
+      
+      if (result.success && result.response) {
+        analysisText = result.response;
+      } else if (result.body) {
+        analysisText = result.body;
+      } else if (typeof result === 'string') {
+        analysisText = result;
+      }
+      
+      if (analysisText) {
+        console.log('Setting champion analysis:', analysisText);
+        // Save the response to a file
+        await saveChampionAnalysis(matchData.metadata.matchId, participant.championName, analysisText);
+        
+        // Display the analysis in the interface
+        setChampionAnalysis(analysisText);
+        setActiveTab('ai-analysis');
+        console.log('Champion analysis set and tab switched to ai-analysis');
+      } else {
+        console.error('No analysis text found in response:', result);
+        throw new Error('No analysis text found in response');
+      }
+    } catch (error) {
+      console.error('Champion Analysis error:', error);
+      alert('Failed to get champion analysis. Please try again.');
+    } finally {
+      setChampionAnalysisLoading(false);
+    }
+  };
+
+  const saveChampionAnalysis = async (matchId: string, championName: string, content: string) => {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `gemini-analysis-champion-${championName}-${matchId}-${timestamp}.txt`;
+      
+      const response = await fetch('/api/save-gemini-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename,
+          content,
+          championName,
+          matchId,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save champion analysis to file');
+      } else {
+        console.log('Champion analysis saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving champion analysis:', error);
+    }
   };
 
   return (
@@ -614,14 +793,13 @@ Team Objectives:
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  🤖 AI Analysis
+                  AI Analysis
                 </button>
                 {matchData.timeline && (
                   <a
                     href={`/match/${matchData.metadata.matchId}/rewind`}
-                    className="flex-1 px-6 py-4 text-sm font-medium transition-all bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white hover:text-white flex items-center justify-center rounded-tr-lg"
+                    className="flex-1 px-6 py-4 text-sm font-medium transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center justify-center"
                   >
-                    <span className="mr-2">🎬</span>
                     Rewind
                   </a>
                 )}
@@ -639,18 +817,15 @@ Team Objectives:
                 <button
                   onClick={fetchAIAnalysis}
                   disabled={aiLoading}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium"
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
                 >
                   {aiLoading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
                       <span>AI Analyzing...</span>
                     </>
                   ) : (
-                    <>
-                      <span>🤖</span>
-                      <span>AI Analysis</span>
-                    </>
+                    'AI Analysis'
                   )}
                 </button>
               </div>
@@ -805,21 +980,32 @@ Team Objectives:
                                 </div>
                               </div>
                               
-                              {/* Clickable Champion Card for Match History */}
-                              {participant.championData && (
-                                <div 
-                                  onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
-                                  className="block p-3 bg-white/60 dark:bg-gray-700/60 rounded-lg hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 cursor-pointer"
+                              {/* Action Buttons */}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => fetchChampionAnalysis(participant)}
+                                  disabled={championAnalysisLoading && selectedChampionForAnalysis === participant.puuid}
+                                  className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
                                 >
-                                  <div className="flex items-center space-x-3">
-                                    <div className="text-2xl">📊</div>
-                                    <div>
-                                      <p className="font-medium text-gray-900 dark:text-white">View Match History</p>
-                                      <p className="text-xs text-gray-600 dark:text-gray-400">Click to see recent matches</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                                  {championAnalysisLoading && selectedChampionForAnalysis === participant.puuid ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                      <span>Analyzing...</span>
+                                    </>
+                                  ) : (
+                                    'AI Analysis'
+                                  )}
+                                </button>
+                                
+                                {participant.championData && (
+                                  <button
+                                    onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                                    className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                  >
+                                    History
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             
                             {/* Detailed Stats (Accordion) */}
@@ -1003,21 +1189,32 @@ Team Objectives:
                                 </div>
                               </div>
                               
-                              {/* Clickable Champion Card for Match History */}
-                              {participant.championData && (
-                                <div 
-                                  onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
-                                  className="block p-3 bg-white/60 dark:bg-gray-700/60 rounded-lg hover:bg-white/80 dark:hover:bg-gray-600/80 transition-all duration-200 cursor-pointer"
+                              {/* Action Buttons */}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => fetchChampionAnalysis(participant)}
+                                  disabled={championAnalysisLoading && selectedChampionForAnalysis === participant.puuid}
+                                  className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
                                 >
-                                  <div className="flex items-center space-x-3">
-                                    <div className="text-2xl">📊</div>
-                                    <div>
-                                      <p className="font-medium text-gray-900 dark:text-white">View Match History</p>
-                                      <p className="text-xs text-gray-600 dark:text-gray-400">Click to see recent matches</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                                  {championAnalysisLoading && selectedChampionForAnalysis === participant.puuid ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                      <span>Analyzing...</span>
+                                    </>
+                                  ) : (
+                                    'AI Analysis'
+                                  )}
+                                </button>
+                                
+                                {participant.championData && (
+                                  <button
+                                    onClick={() => fetchPlayerMatchHistory(participant.puuid, participant.summonerName)}
+                                    className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                  >
+                                    History
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             
                             {/* Detailed Stats (Accordion) */}
@@ -1201,31 +1398,45 @@ Team Objectives:
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <div className="text-4xl">🤖</div>
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">AI Match Analysis</h2>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {championAnalysis ? 'AI Champion Analysis' : 'AI Match Analysis'}
+                  </h2>
                 </div>
-                <button
-                  onClick={fetchAIAnalysis}
-                  disabled={aiLoading}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium"
-                >
-                  {aiLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Analyzing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🔄</span>
-                      <span>Refresh Analysis</span>
-                    </>
+                <div className="flex space-x-2">
+                  {!championAnalysis && (
+                    <button
+                      onClick={fetchAIAnalysis}
+                      disabled={aiLoading}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                    >
+                      {aiLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-gray-400 dark:border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Analyzing...</span>
+                        </>
+                      ) : (
+                        'Refresh Match Analysis'
+                      )}
+                    </button>
                   )}
-                </button>
+                  {championAnalysis && (
+                    <button
+                      onClick={() => {
+                        setChampionAnalysis(null);
+                        setSelectedChampionForAnalysis(null);
+                      }}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                    >
+                      Back to Match Analysis
+                    </button>
+                  )}
+                </div>
               </div>
               
-              {aiAnalysis ? (
+              {(aiAnalysis || championAnalysis) ? (
                 <div className="prose dark:prose-invert max-w-none">
                   <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {aiAnalysis.split('\n').map((line, index) => {
+                    {(championAnalysis || aiAnalysis)?.split('\n').map((line, index) => {
                       // Handle main headers
                       if (line.startsWith('# ')) {
                         return (
@@ -1296,22 +1507,22 @@ Team Objectives:
                   <div className="text-6xl mb-4">🤖</div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">No Analysis Available</h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Click the "AI Analysis" button above to generate a strategic analysis of this match.
+                    Click the "AI Analysis" button above to generate a strategic analysis of this match, or click individual champion "AI Analysis" buttons for player-specific insights.
                   </p>
                   <button
                     onClick={fetchAIAnalysis}
                     disabled={aiLoading}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2 font-medium mx-auto"
+                    className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium mx-auto border border-gray-200 dark:border-gray-600"
                   >
                     {aiLoading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-gray-400 dark:border-gray-500 border-t-transparent rounded-full animate-spin"></div>
                         <span>Analyzing...</span>
                       </>
                     ) : (
                       <>
                         <span>🚀</span>
-                        <span>Generate Analysis</span>
+                        <span>Generate Match Analysis</span>
                       </>
                     )}
                   </button>
