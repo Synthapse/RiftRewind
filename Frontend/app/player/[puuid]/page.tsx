@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Champion, ChampionData } from '@/types/champion';
-import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '../../../lib/config';
+import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 
 interface MatchData {
   metadata: {
