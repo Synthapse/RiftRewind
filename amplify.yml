@@ -9,8 +9,9 @@ frontend:
     build:
       commands:
         - npm run build
+        - npm run export   # <-- export static files to "out" folder
   artifacts:
-    baseDirectory: Frontend/.next
+    baseDirectory: Frontend/out   # <-- change from .next to out
     files:
       - '**/*'
   cache:
