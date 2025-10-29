@@ -5,7 +5,7 @@ import { Champion, ChampionData } from '@/types/champion';
 import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
 import MatchTimeline from './MatchTimeline';
-import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
+import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '../lib/config';
 
 interface MatchData {
   metadata: {

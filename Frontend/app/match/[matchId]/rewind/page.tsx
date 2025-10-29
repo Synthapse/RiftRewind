@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import MatchRewind from '@/components/MatchRewind';
-import { RIOT_API_CONFIG } from '@/lib/config';
+import { RIOT_API_CONFIG } from '../../../../lib/config';
 
 interface Participant {
   summonerName: string;
