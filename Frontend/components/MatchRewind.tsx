@@ -190,7 +190,7 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
     // Dragon Soul
     const dragonSoul = keyEvents.find(e => e.type === 'DRAGON_SOUL_GIVEN');
     if (dragonSoul) {
-      const soulTeam = dragonSoul.teamId || winningTeam;
+      const soulTeam = (dragonSoul as any).teamId || winningTeam;
       const teamMembers = participants.filter(p => p.teamId === soulTeam);
       extractedHighlights.push({
         type: 'objective',
