@@ -4,6 +4,7 @@ frontend:
     preBuild:
       commands:
         - cd Frontend
+        - nvm use 20
         - npm ci
     build:
       commands:
