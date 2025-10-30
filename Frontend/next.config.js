@@ -5,6 +5,14 @@ const nextConfig = {
     // Ensure proper module resolution
     esmExternals: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'static.invenglobal.com',
+      },
+    ],
+  },
   // Ensure proper path resolution
   webpack: (config) => {
     config.resolve.alias = {

@@ -49,6 +49,9 @@ pids
 # Output of 'npm pack'
 *.tgz
 
+# AWS Configuration (contains credentials)
+lib/aws-config.ts
+
 # Yarn Integrity file
 .yarn-integrity
 

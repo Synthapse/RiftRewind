@@ -6,6 +6,7 @@ import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
 import MatchTimeline from './MatchTimeline';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
+import { formatAnalysisText } from '@/lib/format-analysis.tsx';
 
 interface MatchData {
   metadata: {
@@ -232,7 +233,7 @@ export default function MatchLookup() {
             const championData = championMap[participant.championName];
             
             return {
-              summonerName: participant.summonerName || 'Unknown',
+              summonerName: participant.riotIdGameName || 'test',
               championName: participant.championName || 'Unknown',
               championData: championData || null,
               champLevel: participant.champLevel || 0,
@@ -362,13 +363,13 @@ Match Information:
 
 Winning Team (${winningTeam?.teamId}):
 ${winningTeamParticipants.map(p => 
-  `- ${p.championName} (${p.summonerName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
+  `- ${p.championName} (${p.riotIdGameName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
   `${p.totalMinionsKilled} CS, ${p.goldEarned} Gold, ${p.totalDamageDealtToChampions} Damage, ${p.visionScore} Vision Score`
 ).join('\n')}
 
 Losing Team (${losingTeam?.teamId}):
 ${losingTeamParticipants.map(p => 
-  `- ${p.championName} (${p.summonerName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
+  `- ${p.championName} (${p.riotIdGameName}): ${p.kills}/${p.deaths}/${p.assists} KDA, ` +
   `${p.totalMinionsKilled} CS, ${p.goldEarned} Gold, ${p.totalDamageDealtToChampions} Damage, ${p.visionScore} Vision Score`
 ).join('\n')}
 
@@ -500,7 +501,7 @@ Team Objectives:
 Use markdown headers (#, ##, ###) and bullet points (-) for clarity.
 
 ## Player Information:
-- **Summoner Name:** ${participant.summonerName}
+- **Summoner Name:** ${participant.riotIdGameName}
 - **Champion:** ${participant.championName} (Level ${participant.champLevel})
 - **Position:** ${participant.individualPosition} / ${participant.role}
 - **Team:** ${participant.teamId} (${team?.win ? 'Victory' : 'Defeat'})
@@ -522,10 +523,10 @@ Use markdown headers (#, ##, ###) and bullet points (-) for clarity.
 
 ## Team Composition:
 **Teammates:**
-${teammates.map(tm => `- ${tm.championName} (${tm.summonerName}): ${tm.kills}/${tm.deaths}/${tm.assists} KDA`).join('\n')}
+${teammates.map(tm => `- ${tm.championName} (${tm.riotIdGameName}): ${tm.kills}/${tm.deaths}/${tm.assists} KDA`).join('\n')}
 
 **Enemies:**
-${enemies.map(enemy => `- ${enemy.championName} (${enemy.summonerName}): ${enemy.kills}/${enemy.deaths}/${enemy.assists} KDA`).join('\n')}
+${enemies.map(enemy => `- ${enemy.championName} (${enemy.riotIdGameName}): ${enemy.kills}/${enemy.deaths}/${enemy.assists} KDA`).join('\n')}
 
 ## Key Events (from timeline):
 ${playerEvents.slice(0, 20).map((event, index) => {
@@ -649,43 +650,18 @@ Please provide a detailed analysis focusing on this specific player's performanc
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header Section */}
-
-        {/* Match Input Section */}
-        <div className="max-w-4xl mx-auto mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Match ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="EUN1_3849902044"
-                  value={matchId}
-                  onChange={(e) => setMatchId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={fetchMatchData}
-                  disabled={matchLoading || !matchId.trim()}
-                  className="px-6 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md font-medium transition-colors"
-                >
-                  {matchLoading ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-                      <span>Loading...</span>
-                    </div>
-                  ) : (
-                    'Fetch Match'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Hidden input for hero section integration */}
+        <div className="hidden">
+          <input
+            id="match-lookup"
+            type="text"
+            placeholder="EUN1_3849902044"
+            value={matchId}
+            onChange={(e) => setMatchId(e.target.value)}
+          />
+          <button onClick={fetchMatchData}>Fetch</button>
         </div>
+
         {/* Error Display */}
         {matchError && (
           <div className="max-w-4xl mx-auto mb-8">
@@ -869,7 +845,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                   
                                   <div>
                                     <h5 className="font-bold text-lg text-gray-900 dark:text-white">
-                                      {participant.summonerName}
+                                      {participant.riotIdGameName}
                                     </h5>
                                     <p className="text-sm text-gray-600 dark:text-gray-300">
                                       {participant.championName} • {participant.individualPosition}
@@ -1078,7 +1054,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                   
                                   <div>
                                     <h5 className="font-bold text-lg text-gray-900 dark:text-white">
-                                      {participant.summonerName}
+                                      {participant.riotIdGameName}
                                     </h5>
                                     <p className="text-sm text-gray-600 dark:text-gray-300">
                                       {participant.championName} • {participant.individualPosition}
@@ -1373,70 +1349,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
               {(aiAnalysis || championAnalysis) ? (
                 <div className="prose dark:prose-invert max-w-none">
                   <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {(championAnalysis || aiAnalysis)?.split('\n').map((line, index) => {
-                      // Handle main headers
-                      if (line.startsWith('# ')) {
-                        return (
-                          <h1 key={index} className="text-4xl font-bold text-gray-900 dark:text-white mb-6 mt-8 border-b-2 border-gray-200 dark:border-gray-600 pb-2">
-                            {line.substring(2)}
-                          </h1>
-                        );
-                      }
-                      // Handle section headers
-                      if (line.startsWith('## ')) {
-                        return (
-                          <h2 key={index} className="text-3xl font-bold text-gray-900 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-600 pb-2">
-                            {line.substring(3)}
-                          </h2>
-                        );
-                      }
-                      // Handle subsection headers
-                      if (line.startsWith('### ')) {
-                        return (
-                          <h3 key={index} className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 mt-4">
-                            {line.substring(4)}
-                          </h3>
-                        );
-                      }
-                      // Handle bold text with colons (like "**Strengths:**")
-                      if (line.includes('**') && line.includes(':')) {
-                        const parts = line.split('**');
-                        return (
-                          <p key={index} className="mb-3">
-                            <strong className="font-semibold text-gray-900 dark:text-white text-lg">
-                              {parts[1]}:
-                            </strong>
-                            {parts[2] && <span className="ml-2">{parts[2]}</span>}
-                          </p>
-                        );
-                      }
-                      // Handle bullet points
-                      if (line.startsWith('- ')) {
-                        return (
-                          <li key={index} className="ml-6 mb-2 list-disc text-gray-700 dark:text-gray-300">
-                            {line.substring(2)}
-                          </li>
-                        );
-                      }
-                      // Handle numbered lists
-                      if (/^\d+\.\s/.test(line)) {
-                        return (
-                          <li key={index} className="ml-6 mb-2 list-decimal text-gray-700 dark:text-gray-300">
-                            {line.replace(/^\d+\.\s/, '')}
-                          </li>
-                        );
-                      }
-                      // Handle empty lines
-                      if (line.trim() === '') {
-                        return <br key={index} />;
-                      }
-                      // Handle regular paragraphs
-                      return (
-                        <p key={index} className="mb-4 text-gray-700 dark:text-gray-300">
-                          {line}
-                        </p>
-                      );
-                    })}
+                    {formatAnalysisText((championAnalysis || aiAnalysis) || '')}
                   </div>
                 </div>
               ) : (

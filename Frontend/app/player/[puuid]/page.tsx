@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Champion, ChampionData } from '@/types/champion';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MatchData {
   metadata: {
@@ -132,6 +134,7 @@ export default function PlayerHistoryPage() {
   const params = useParams();
   const router = useRouter();
   const puuid = params.puuid as string;
+  const { theme, toggleTheme } = useTheme();
   
   // State management
   const [playerName, setPlayerName] = useState<string>('');
@@ -165,7 +168,7 @@ export default function PlayerHistoryPage() {
     }
   };
 
-  // Fetch player's last 5 matches
+  // Fetch player's matches with caching
   const fetchPlayerMatches = async () => {
     if (!puuid) return;
     
@@ -173,7 +176,24 @@ export default function PlayerHistoryPage() {
       setLoadingMatches(true);
       setError(null);
       
-      // Fetch match IDs by PUUID
+      // Check cache first
+      const cacheKey = `player-matches-${puuid}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+        const cacheAge = Date.now() - parsed.timestamp;
+        // Cache valid for 5 minutes
+        if (cacheAge < 5 * 60 * 1000) {
+          setPlayerMatches(parsed.matches);
+          if (parsed.matches.length > 0) {
+            setPlayerName(parsed.matches[0].summonerName);
+          }
+          setLoadingMatches(false);
+          return;
+        }
+      }
+      
+      // Fetch match IDs by PUUID - limit to 5 matches
       const matchIdsUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=5&api_key=${API_KEY}`;
       const matchIdsResponse = await fetch(matchIdsUrl);
       
@@ -225,6 +245,14 @@ export default function PlayerHistoryPage() {
       }
       
       setPlayerMatches(validMatches);
+      
+      // Save to cache
+      if (validMatches.length > 0) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          matches: validMatches,
+          timestamp: Date.now()
+        }));
+      }
     } catch (error) {
       console.error('Error fetching player matches:', error);
       setError('Failed to fetch player match history. Please check your API key and try again.');
@@ -465,9 +493,40 @@ Focus on actionable insights that can help the player improve their gameplay.`;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Floating Theme Toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <button
+          onClick={toggleTheme}
+          className={`p-3 rounded-full shadow-lg transition-all duration-200 ${
+            theme === 'light' 
+              ? 'bg-white hover:bg-gray-100 text-gray-600' 
+              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+          }`}
+          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+          title={`Current: ${theme} theme - Click to switch to ${theme === 'light' ? 'dark' : 'light'}`}
+        >
+          {theme === 'light' ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Logo and Back Button */}
+      <div className="fixed top-4 left-4 z-50">
+        <Link href="/" className="text-2xl font-bold text-gray-900 dark:text-white mr-4">
+          RiftRewind
+        </Link>
+      </div>
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="max-w-6xl mx-auto mb-8">
+        <div className="max-w-6xl mx-auto mb-8 mt-16">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -489,23 +548,33 @@ Focus on actionable insights that can help the player improve their gameplay.`;
                 </div>
               </div>
               
-              <button
-                onClick={analyzePlayerPerformance}
-                disabled={analyzing || playerMatches.length === 0}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
-              >
-                {analyzing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>🤖</span>
-                    <span>Analyze Player Performance</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => router.push(`/player/${puuid}/rewind`)}
+                  disabled={playerMatches.length === 0}
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                >
+                  <span>⏪</span>
+                  <span>Player Rewind (5 matches)</span>
+                </button>
+                <button
+                  onClick={analyzePlayerPerformance}
+                  disabled={analyzing || playerMatches.length === 0}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                >
+                  {analyzing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🤖</span>
+                      <span>Analyze Player Performance</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -535,48 +604,59 @@ Focus on actionable insights that can help the player improve their gameplay.`;
         {!loadingMatches && playerMatches.length > 0 && (
           <div className="max-w-6xl mx-auto mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Last 5 Matches</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Recent Matches ({playerMatches.length})</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-3">
                 {playerMatches.map((match, index) => (
                   <div
                     key={index}
-                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-lg ${
                       match.win
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-700'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-700'
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-700 hover:border-green-600'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-700 hover:border-red-600'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className={`px-2 py-1 rounded text-xs font-semibold ${
-                        match.win ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                      }`}>
-                        {match.win ? 'Victory' : 'Defeat'}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className={`px-3 py-1 rounded-md text-sm font-semibold min-w-[80px] text-center ${
+                          match.win ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                          {match.win ? '✓ Victory' : '✗ Defeat'}
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          <div className="font-bold text-lg text-gray-900 dark:text-white">
+                            {match.champion}
+                          </div>
+                          <div className="text-gray-600 dark:text-gray-400 text-sm">
+                            {match.gameMode}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <div className="text-gray-900 dark:text-white font-semibold text-lg">
+                            {match.kills}/{match.deaths}/{match.assists}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            KDA
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(match.gameCreation).toLocaleDateString()}
+                      
+                      <div className="flex items-center space-x-6">
+                        <div className="text-gray-500 dark:text-gray-400 text-sm">
+                          {Math.floor(match.gameDuration / 60)}:{(match.gameDuration % 60).toString().padStart(2, '0')}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(match.gameCreation).toLocaleDateString()}
+                        </div>
+                        <Link
+                          href={`/match/${match.matchId}/rewind`}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors text-sm"
+                        >
+                          ⏪ Rewind
+                        </Link>
                       </div>
-                    </div>
-                    
-                    <div className="font-bold text-lg text-gray-900 dark:text-white mb-1">
-                      {match.champion}
-                    </div>
-                    
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {match.gameMode}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="text-gray-900 dark:text-white font-semibold">
-                        {match.kills}/{match.deaths}/{match.assists}
-                      </div>
-                      <div className="text-gray-500 dark:text-gray-400">
-                        {Math.floor(match.gameDuration / 60)}:{(match.gameDuration % 60).toString().padStart(2, '0')}
-                      </div>
-                    </div>
-                    
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      Match ID: {match.matchId}
                     </div>
                   </div>
                 ))}

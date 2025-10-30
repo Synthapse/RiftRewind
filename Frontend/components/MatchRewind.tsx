@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatAnalysisText } from '@/lib/format-analysis.tsx';
 
 interface TimelineData {
   metadata: {
@@ -527,56 +528,8 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
               </button>
             </div>
             <div className="prose prose-invert max-w-none">
-              <div className="text-white leading-relaxed whitespace-pre-wrap">
-                {aiAnalysis.split('\n').map((line, index) => {
-                  if (line.startsWith('# ')) {
-                    return (
-                      <h1 key={index} className="text-4xl font-bold text-white mb-6 mt-8">
-                        {line.substring(2)}
-                      </h1>
-                    );
-                  }
-                  if (line.startsWith('## ')) {
-                    return (
-                      <h2 key={index} className="text-3xl font-bold text-white mb-4 mt-6">
-                        {line.substring(3)}
-                      </h2>
-                    );
-                  }
-                  if (line.startsWith('### ')) {
-                    return (
-                      <h3 key={index} className="text-2xl font-semibold text-white mb-3 mt-4">
-                        {line.substring(4)}
-                      </h3>
-                    );
-                  }
-                  if (line.includes('**') && line.includes(':')) {
-                    const parts = line.split('**');
-                    return (
-                      <p key={index} className="mb-2">
-                        <strong className="font-semibold text-white">
-                          {parts[1]}:
-                        </strong>
-                        {parts[2] && <span>{parts[2]}</span>}
-                      </p>
-                    );
-                  }
-                  if (line.startsWith('- ')) {
-                    return (
-                      <li key={index} className="ml-6 mb-1 list-disc">
-                        {line.substring(2)}
-                      </li>
-                    );
-                  }
-                  if (line.trim() === '') {
-                    return <br key={index} />;
-                  }
-                  return (
-                    <p key={index} className="mb-4">
-                      {line}
-                    </p>
-                  );
-                })}
+              <div className="text-white leading-relaxed">
+                {formatAnalysisText(aiAnalysis)}
               </div>
             </div>
           </div>
