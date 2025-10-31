@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/contexts/ThemeContext';
-import { formatAnalysisText } from '@/lib/format-analysis.tsx';
+import { formatAnalysisText } from '@/lib/format-analysis';
 
 interface AnalysisFile {
   key: string;
