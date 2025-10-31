@@ -233,7 +233,7 @@ export default function MatchLookup() {
             const championData = championMap[participant.championName];
             
             return {
-              summonerName: participant.riotIdGameName || 'test',
+              summonerName: participant.riotIdGameName || participant.summonerName || 'Unknown',
               championName: participant.championName || 'Unknown',
               championData: championData || null,
               champLevel: participant.champLevel || 0,

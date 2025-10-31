@@ -123,7 +123,7 @@ export default function RewindPage() {
 
   // Transform participants to match the expected format
   const participants: Participant[] = matchData.match.info.participants.map((p: any) => ({
-    summonerName: p.summonerName || 'Unknown',
+    summonerName: p.riotIdGameName || p.summonerName || 'Unknown',
     championName: p.championName || 'Unknown',
     teamId: p.teamId || 0,
     kills: p.kills || 0,

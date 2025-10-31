@@ -81,7 +81,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Text content */}
-            <div className="text-center lg:text-left space-y-6">
+            <div className="text-center lg:text-left space-y-6 overflow-visible relative z-10">
               <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight">
                 RiftRewind
               </h1>
@@ -116,10 +116,29 @@ export default function Home() {
 
               {/* Match Lookup Input */}
               <div className="pt-4">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Enter Match ID
-                  </label>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 overflow-visible">
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-white">
+                      Enter Match ID
+                    </label>
+                    <div className="group relative flex items-center gap-1 overflow-visible">
+                      <svg className="w-4 h-4 text-white/60 hover:text-white cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-white/60 text-xs hover:text-white cursor-help">How to find Match ID</span>
+                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-[9999] pointer-events-none">
+                        <div className="bg-gray-900 text-white text-base rounded-lg p-6 shadow-2xl border border-gray-700 w-[800px] pointer-events-auto">
+                          <p className="mb-2 font-semibold">This is available in your League of Legends client match history</p>
+                          <p className="mb-4">Include the region (e.g., EUN1, EUW1, NA1, etc.)</p>
+                          <img 
+                            src="/gameId.png" 
+                            alt="Match ID location" 
+                            className="rounded border border-gray-600 w-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <input
                       id="hero-match-id-input"
@@ -180,7 +199,7 @@ export default function Home() {
                   
                   {/* S3 Count Display */}
                   {s3Counts !== null && (
-                    <div className="mt-3 text-center">
+                    <div className="mt-3 text-left">
                       {s3Counts.totalCount > 0 ? (
                         <Link
                           href="/analysis"
@@ -198,7 +217,7 @@ export default function Home() {
             </div>
             
             {/* Right side - Image Slider */}
-            <div className="relative">
+            <div className="relative z-[5]">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 {/* Slider Container */}
                 <div className="relative" style={{ height: '400px' }}>

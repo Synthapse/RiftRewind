@@ -236,7 +236,7 @@ export default function PlayerHistoryPage() {
             deaths: player?.deaths || 0,
             assists: player?.assists || 0,
             puuid: puuid,
-            summonerName: player?.summonerName || 'Unknown'
+            summonerName: player?.riotIdGameName || player?.summonerName || 'Unknown'
           };
         });
       

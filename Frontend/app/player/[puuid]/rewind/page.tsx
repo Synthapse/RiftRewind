@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { RIOT_API_CONFIG } from '@/lib/config';
+import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface MatchSummary {
@@ -29,6 +29,8 @@ export default function PlayerRewindPage() {
   const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   
   const API_KEY = RIOT_API_CONFIG.API_KEY;
 
@@ -91,7 +93,7 @@ export default function PlayerRewindPage() {
                 deaths: player?.deaths || 0,
                 assists: player?.assists || 0,
                 puuid: puuid,
-                summonerName: player?.summonerName || 'Unknown'
+                summonerName: player?.riotIdGameName || player?.summonerName || 'Unknown'
               };
             });
         }
@@ -111,6 +113,146 @@ export default function PlayerRewindPage() {
 
     fetchMatches();
   }, [puuid, API_KEY]);
+
+  const startRewind = async () => {
+    if (matches.length === 0) return;
+    
+    // Navigate to full rewind experience page
+    router.push(`/player/${puuid}/rewind/experience`);
+  };
+
+  const fetchAIAnalysis = async () => {
+    if (matches.length === 0) return;
+    
+    try {
+      setAnalyzing(true);
+      setError(null);
+      
+      // Fetch detailed match data for aggregation
+      const detailedMatches = [];
+      for (const match of matches) {
+        const matchUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${match.matchId}?api_key=${API_KEY}`;
+        const matchResponse = await fetch(matchUrl);
+        
+        if (matchResponse.ok) {
+          const matchData = await matchResponse.json();
+          detailedMatches.push(matchData);
+        }
+      }
+      
+      // Prepare aggregated statistics
+      const totalKills = matches.reduce((sum, m) => sum + m.kills, 0);
+      const totalDeaths = matches.reduce((sum, m) => sum + m.deaths, 0);
+      const totalAssists = matches.reduce((sum, m) => sum + m.assists, 0);
+      const avgKDA = totalDeaths > 0 ? ((totalKills + totalAssists) / totalDeaths).toFixed(2) : '0.00';
+      const wins = matches.filter(m => m.win).length;
+      const winRate = ((wins / matches.length) * 100).toFixed(0);
+      
+      // Get champion diversity and performance
+      const championStats = matches.reduce((acc, match) => {
+        if (!acc[match.champion]) {
+          acc[match.champion] = { played: 0, wins: 0, avgKDA: 0 };
+        }
+        acc[match.champion].played++;
+        if (match.win) acc[match.champion].wins++;
+        acc[match.champion].avgKDA += (match.kills + match.assists) / (match.deaths || 1);
+        return acc;
+      }, {} as Record<string, { played: number; wins: number; avgKDA: number }>);
+      
+      const championPerformance = Object.entries(championStats).map(([champ, stats]) => ({
+        champion: champ,
+        played: stats.played,
+        winRate: ((stats.wins / stats.played) * 100).toFixed(0),
+        avgKDA: (stats.avgKDA / stats.played).toFixed(2)
+      }));
+      
+      // Create comprehensive prompt for aggregated insights
+      const prompt = `You are a **League of Legends Player Performance Analyzer**. Analyze this player's aggregated performance across their last 5 matches and provide the MOST INTERESTING INSIGHTS.
+
+Focus on:
+- Unusual patterns or trends
+- Unique strengths or surprising weaknesses
+- Champion-specific mastery or struggles
+- Win condition analysis across games
+- Aggressive/defensive playstyle indicators
+- Early game vs late game performance
+
+Use markdown headers (#, ##, ###) and bullet points (-) for clarity. Keep insights CONCISE and ACTIONABLE.
+
+## Player Information:
+- **Summoner Name:** ${playerName}
+- **PUUID:** ${puuid}
+- **Matches Analyzed:** ${matches.length}
+
+## Overall Performance:
+- **Win Rate:** ${winRate}% (${wins}/${matches.length})
+- **Average KDA:** ${avgKDA}
+- **Total Kills:** ${totalKills}
+- **Total Deaths:** ${totalDeaths}
+- **Total Assists:** ${totalAssists}
+
+## Champion Performance:
+${championPerformance.map(champ => `- **${champ.champion}**: Played ${champ.played} time(s), ${champ.winRate}% win rate, ${champ.avgKDA} avg KDA`).join('\n')}
+
+## Match Summary:
+${matches.map((match, index) => `
+### Match ${index + 1} - ${match.matchId}
+- **Date:** ${new Date(match.gameCreation).toLocaleDateString()}
+- **Duration:** ${Math.floor(match.gameDuration / 60)}:${(match.gameDuration % 60).toString().padStart(2, '0')}
+- **Champion:** ${match.champion}
+- **Result:** ${match.win ? 'Victory' : 'Defeat'}
+- **KDA:** ${match.kills}/${match.deaths}/${match.assists}
+- **Game Mode:** ${match.gameMode}
+`).join('\n')}
+
+## Detailed Match Data:
+${detailedMatches.slice(0, 3).map((match, idx) => {
+  const player = match.info.participants.find((p: any) => p.puuid === puuid);
+  return `Match ${idx + 1} - ${player ? `${player.totalDamageDealtToChampions} damage, ${player.visionScore} vision, ${player.goldEarned} gold, ${player.totalMinionsKilled} CS` : 'N/A'}`;
+}).join('\n')}
+
+Please provide the MOST INTERESTING insights from this aggregated data that would surprise or help the player understand their performance better.`;
+
+      // Send to Lambda for LLM analysis
+      const lambdaData = { prompt: prompt };
+
+      const APIUrl = LAMBDA_CONFIG.AI_ANALYSIS_URL;
+      const response = await fetch(APIUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lambdaData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Lambda error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Player rewind analysis Lambda response:', result);
+
+      // Handle different response formats
+      let analysisText = null;
+      
+      if (result.success && result.response) {
+        analysisText = result.response;
+      } else if (result.body) {
+        analysisText = result.body;
+      } else if (typeof result === 'string') {
+        analysisText = result;
+      }
+      
+      if (analysisText) {
+        setAiAnalysis(analysisText);
+      } else {
+        throw new Error('No analysis text found in response');
+      }
+    } catch (error) {
+      console.error('AI Analysis error:', error);
+      setError('Failed to get AI insights. Please try again.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -192,6 +334,35 @@ export default function PlayerRewindPage() {
             </div>
             <p className="text-2xl text-white/80 mb-2">{playerName}</p>
             <p className="text-lg text-white/60">Last 5 Matches Performance</p>
+            
+            {/* AI Analysis Button */}
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={startRewind}
+                disabled={matches.length === 0}
+                className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl"
+              >
+                <span>⏪</span>
+                <span>Start Rewind Experience</span>
+              </button>
+              <button
+                onClick={fetchAIAnalysis}
+                disabled={analyzing || matches.length === 0}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl"
+              >
+                {analyzing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🤖</span>
+                    <span>Get AI Insights</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Overall Stats */}
@@ -262,6 +433,91 @@ export default function PlayerRewindPage() {
             ))}
           </div>
 
+          {/* AI Analysis Results */}
+          {aiAnalysis && (
+            <div className="mt-12">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="text-4xl">🤖</div>
+                  <h2 className="text-3xl font-bold text-white">
+                    AI Performance Insights
+                  </h2>
+                </div>
+                
+                <div className="prose max-w-none">
+                  <div className="text-white/90 leading-relaxed">
+                    {aiAnalysis.split('\n').map((line, index) => {
+                      // Handle main headers
+                      if (line.startsWith('# ')) {
+                        return (
+                          <h1 key={index} className="text-4xl font-bold text-white mb-6 mt-8 border-b-2 border-white/20 pb-2">
+                            {line.substring(2)}
+                          </h1>
+                        );
+                      }
+                      // Handle section headers
+                      if (line.startsWith('## ')) {
+                        return (
+                          <h2 key={index} className="text-3xl font-bold text-white mb-4 mt-6 border-b border-white/20 pb-2">
+                            {line.substring(3)}
+                          </h2>
+                        );
+                      }
+                      // Handle subsection headers
+                      if (line.startsWith('### ')) {
+                        return (
+                          <h3 key={index} className="text-2xl font-semibold text-white mb-3 mt-4">
+                            {line.substring(4)}
+                          </h3>
+                        );
+                      }
+                      // Handle bold text
+                      if (line.includes('**')) {
+                        const parts = line.split('**');
+                        return (
+                          <p key={index} className="mb-3">
+                            {parts.map((part, i) => {
+                              if (i % 2 === 1) {
+                                return <strong key={i} className="font-bold text-white text-lg">{part}</strong>;
+                              }
+                              return <span key={i}>{part}</span>;
+                            })}
+                          </p>
+                        );
+                      }
+                      // Handle bullet points
+                      if (line.startsWith('- ')) {
+                        return (
+                          <li key={index} className="ml-6 mb-2 list-disc text-white/90">
+                            {line.substring(2)}
+                          </li>
+                        );
+                      }
+                      // Handle numbered lists
+                      if (/^\d+\.\s/.test(line)) {
+                        return (
+                          <li key={index} className="ml-6 mb-2 list-decimal text-white/90">
+                            {line.replace(/^\d+\.\s/, '')}
+                          </li>
+                        );
+                      }
+                      // Handle empty lines
+                      if (line.trim() === '') {
+                        return <br key={index} />;
+                      }
+                      // Handle regular paragraphs
+                      return (
+                        <p key={index} className="mb-4 text-white/90">
+                          {line}
+                        </p>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Back Button */}
           <div className="mt-12 text-center">
             <button
@@ -276,4 +532,3 @@ export default function PlayerRewindPage() {
     </div>
   );
 }
-
