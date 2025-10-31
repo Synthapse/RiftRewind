@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { analyzeMatchWithGemini, MatchAnalysisData } from '@/lib/gemini';
-import { formatAnalysisText } from '@/lib/format-analysis.tsx';
+import { formatAnalysisText } from '@/lib/format-analysis';
 
 interface MatchData {
   metadata: {

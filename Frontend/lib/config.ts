@@ -1,6 +1,6 @@
 // Riot Games API Configuration
 export const RIOT_API_CONFIG = {
-  API_KEY: "RGAPI-002ad03b-9c2e-42ee-89b5-f6cf13d50fd2", // Using the key from rewind page
+  API_KEY: "RGAPI-172b2b63-7a06-41e7-bbd0-30a62ab70fe4", // Using the key from rewind page
   PLATFORM: "eun1", // EUNE server
   REGION: "europe", // Europe region for API calls
 } as const;
