@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatAnalysisText } from '@/lib/format-analysis';
+import RewindShare from '@/components/RewindShare';
 
 interface TimelineData {
   metadata: {
@@ -54,26 +56,19 @@ interface MatchRewindProps {
 }
 
 export default function MatchRewind({ timeline, participants, matchId, gameDuration, winningTeam, matchData }: MatchRewindProps) {
+  const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSlide, setShowAiSlide] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   // Extract key highlights from timeline
   useEffect(() => {
     const extractedHighlights: Highlight[] = [];
     
-    // Intro slide
-    extractedHighlights.push({
-      type: 'intro',
-      timestamp: 0,
-      title: 'Match Rewind',
-      description: `${matchId}`,
-      icon: '🎮'
-    });
-
     // Extract key events from timeline
     const keyEvents: Array<{
       timestamp: number;
@@ -188,6 +183,23 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
       }
     });
 
+    // First Tower
+    const firstTower = keyEvents.find(e => e.type === 'BUILDING_KILL' && e.buildingType === 'TOWER_BUILDING');
+    if (firstTower && firstTower.killerId) {
+      const killer = participants[firstTower.killerId - 1];
+      if (killer) {
+        extractedHighlights.push({
+          type: 'objective',
+          timestamp: firstTower.timestamp,
+          title: 'First Tower!',
+          description: `${killer.championName} destroyed first tower`,
+          participants: [killer],
+          icon: '🏰',
+          teamId: killer.teamId
+        });
+      }
+    }
+
     // Dragon Soul
     const dragonSoul = keyEvents.find(e => e.type === 'DRAGON_SOUL_GIVEN');
     if (dragonSoul) {
@@ -211,6 +223,11 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
     const topDamage = [...participants].sort((a, b) => b.totalDamageDealtToChampions - a.totalDamageDealtToChampions)[0];
     const topGold = [...participants].sort((a, b) => b.goldEarned - a.goldEarned)[0];
     const topVision = [...participants].sort((a, b) => b.visionScore - a.visionScore)[0];
+    const topKDA = [...participants].sort((a, b) => {
+      const aKDA = (a.kills + a.assists) / (a.deaths || 1);
+      const bKDA = (b.kills + b.assists) / (b.deaths || 1);
+      return bKDA - aKDA;
+    })[0];
 
     if (topDamage) {
       extractedHighlights.push({
@@ -248,6 +265,19 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
       });
     }
 
+    if (topKDA) {
+      const kdaValue = ((topKDA.kills + topKDA.assists) / (topKDA.deaths || 1)).toFixed(2);
+      extractedHighlights.push({
+        type: 'killstreak',
+        timestamp: gameDuration * 1000 * 0.75,
+        title: 'Best KDA',
+        description: `${topKDA.championName} achieved ${kdaValue} KDA`,
+        participants: [topKDA],
+        icon: '⭐',
+        teamId: topKDA.teamId
+      });
+    }
+
     // Outro slide
     const winningPlayers = participants.filter(p => p.win);
     extractedHighlights.push({
@@ -257,6 +287,22 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
       description: `Team ${winningTeam} Victory!`,
       participants: winningPlayers,
       icon: '🏆',
+      teamId: winningTeam
+    });
+
+    // Final Summary Slide
+    const totalKills = participants.reduce((sum, p) => sum + p.kills, 0);
+    const totalAssists = participants.reduce((sum, p) => sum + p.assists, 0);
+    const totalDeaths = participants.reduce((sum, p) => sum + p.deaths, 0);
+    const totalDamage = participants.reduce((sum, p) => sum + p.totalDamageDealtToChampions, 0);
+    
+    extractedHighlights.push({
+      type: 'intro',
+      timestamp: gameDuration * 1000 + 100,
+      title: 'Match Summary',
+      description: `${extractedHighlights.length - 2} key moments • ${totalKills} kills • ${totalAssists} assists • ${Math.floor(totalDamage / 1000)}k total damage`,
+      participants: winningPlayers.slice(0, 5),
+      icon: '📊',
       teamId: winningTeam
     });
 
@@ -272,11 +318,12 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
         setCurrentSlide(currentSlide + 1);
       } else {
         setIsPlaying(false);
+        setShowShare(true);
       }
     }, 3000); // 3 seconds per slide
 
     return () => clearTimeout(timer);
-  }, [currentSlide, isPlaying, highlights.length]);
+  }, [currentSlide, isPlaying, highlights.length, router]);
 
   const fetchAIAnalysis = async () => {
     if (!matchData) return;
@@ -405,23 +452,6 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
         <div className="text-white text-xl font-bold">Rift Rewind</div>
         <div className="flex items-center space-x-4">
           <button
-            onClick={fetchAIAnalysis}
-            disabled={aiLoading || !matchData}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all flex items-center space-x-2"
-          >
-            {aiLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>AI Analyzing...</span>
-              </>
-            ) : (
-              <>
-                <span>🤖</span>
-                <span>AI Analysis</span>
-              </>
-            )}
-          </button>
-          <button
             onClick={prevSlide}
             disabled={currentSlide === 0}
             className="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all"
@@ -453,10 +483,13 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
       <div className="relative z-10 flex items-center justify-center min-h-screen p-8">
         <div className="w-full max-w-4xl">
           {/* Slide container */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-12 border border-white/20 shadow-2xl transition-all duration-500 transform hover:scale-105">
+          <div 
+            key={currentSlide}
+            className="bg-white/10 backdrop-blur-lg rounded-3xl p-12 border border-white/20 shadow-2xl transition-all duration-500 animate-fadeIn"
+          >
             {/* Icon */}
             <div className="text-center mb-8">
-              <div className="text-8xl animate-bounce">{currentHighlight.icon}</div>
+              <div className="text-8xl animate-bounce drop-shadow-2xl">{currentHighlight.icon}</div>
             </div>
 
             {/* Title */}
@@ -486,11 +519,12 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
                 {currentHighlight.participants.slice(0, 5).map((participant, index) => (
                   <div 
                     key={index}
-                    className={`p-4 rounded-xl border-2 transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all hover:scale-110 hover:shadow-xl ${
                       participant.teamId === 100 
                         ? 'bg-blue-500/30 border-blue-400' 
                         : 'bg-red-500/30 border-red-400'
                     }`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
                   >
                     <div className="text-center">
                       <div className="text-xl font-bold text-white mb-1">
@@ -507,9 +541,33 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
                 ))}
               </div>
             )}
+
           </div>
         </div>
       </div>
+
+      {/* Share Section - Shown after rewind completes */}
+      {showShare && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-fadeIn">
+          <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-lg rounded-2xl p-6 border-2 border-white/30 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white text-xl font-bold">Share This Rewind</h3>
+              <button
+                onClick={() => router.back()}
+                className="text-white/60 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <RewindShare 
+              title={`Match Complete - ${winningTeam === 100 ? 'Blue' : 'Red'} Victory`}
+              description={`Check out these amazing match highlights!`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* AI Analysis Modal */}
       {showAiSlide && aiAnalysis && (
@@ -560,4 +618,5 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
     </div>
   );
 }
+
 

@@ -698,23 +698,17 @@ Please provide a detailed analysis focusing on this specific player's performanc
                     Timeline
                   </button>
                 )}
-                <button
-                  onClick={() => setActiveTab('ai-analysis')}
-                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-                    activeTab === 'ai-analysis'
-                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  AI Analysis
-                </button>
-                {matchData.timeline && (
-                  <a
-                    href={`/match/${matchData.metadata.matchId}/rewind`}
-                    className="flex-1 px-6 py-4 text-sm font-medium transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center justify-center"
+                {aiAnalysis && (
+                  <button
+                    onClick={() => setActiveTab('ai-analysis')}
+                    className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                      activeTab === 'ai-analysis'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
                   >
-                    Rewind
-                  </a>
+                    Match Insights
+                  </button>
                 )}
               </div>
             </div>
@@ -727,77 +721,84 @@ Please provide a detailed analysis focusing on this specific player's performanc
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
               <div className="mb-6 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Match Details</h3>
-                <button
-                  onClick={fetchAIAnalysis}
-                  disabled={aiLoading}
-                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
-                >
-                  {aiLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-                      <span>AI Analyzing...</span>
-                    </>
-                  ) : (
-                    'AI Analysis'
+                <div className="flex gap-2">
+                  <button
+                    onClick={fetchAIAnalysis}
+                    disabled={aiLoading}
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                        <span>AI Analyzing...</span>
+                      </>
+                    ) : (
+                      'Get Match Insights'
+                    )}
+                  </button>
+                  {matchData.timeline && (
+                    <a
+                      href={`/match/${matchData.metadata.matchId}/rewind`}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white transition-colors font-medium border border-blue-700"
+                    >
+                      Rewind This Match
+                    </a>
                   )}
-                </button>
+                </div>
               </div>
               
               {/* Basic Match Info */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Match ID</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.metadata.matchId}</p>
+              <div className="grid grid-cols-3 gap-x-6 gap-y-2 mb-6">
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Match ID: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.metadata.matchId}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Duration</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Duration: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
                     {Math.floor(matchData.info.gameDuration / 60)}:{(matchData.info.gameDuration % 60).toString().padStart(2, '0')}
-                  </p>
+                  </span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game Mode</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameMode}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Game Mode: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.gameMode}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game Type</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameType}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Game Type: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.gameType}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Queue ID</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.queueId}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Queue ID: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.queueId}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Version</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameVersion}</p>
-                </div>
-              </div>
-
-              {/* Additional Match Details */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Game ID</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.gameId}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Version: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.gameVersion}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Platform</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.platformId}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Game ID: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.gameId}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Map ID</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.mapId}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Platform: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.platformId}</span>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-3 border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Result</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{matchData.info.endOfGameResult}</p>
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Map ID: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.mapId}</span>
+                </div>
+                
+                <div className="text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Result: </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{matchData.info.endOfGameResult}</span>
                 </div>
               </div>
               
@@ -906,7 +907,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                       <span>Analyzing...</span>
                                     </>
                                   ) : (
-                                    'AI Analysis'
+                                    'Get player insights'
                                   )}
                                 </button>
                                 
@@ -915,7 +916,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                     href={`/player/${participant.puuid}`}
                                     className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
                                   >
-                                    History
+                                    View History
                                   </Link>
                                 )}
                               </div>
@@ -1115,7 +1116,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                       <span>Analyzing...</span>
                                     </>
                                   ) : (
-                                    'AI Analysis'
+                                    'Get player insights'
                                   )}
                                 </button>
                                 
@@ -1124,7 +1125,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                     href={`/player/${participant.puuid}`}
                                     className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
                                   >
-                                    History
+                                    View History
                                   </Link>
                                 )}
                               </div>

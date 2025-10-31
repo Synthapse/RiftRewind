@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RIOT_API_CONFIG } from '@/lib/config';
+import RewindShare from '@/components/RewindShare';
 
 interface MatchSummary {
   matchId: string;
@@ -51,6 +52,7 @@ export default function PlayerRewindExperiencePage() {
   const [aggregatedStats, setAggregatedStats] = useState<AggregatedStats | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   
   const API_KEY = RIOT_API_CONFIG.API_KEY;
 
@@ -226,11 +228,16 @@ export default function PlayerRewindExperiencePage() {
     if (!isPlaying || currentSlide >= 7) return;
     
     const timer = setTimeout(() => {
-      setCurrentSlide(currentSlide + 1);
+      if (currentSlide < 6) {
+        setCurrentSlide(currentSlide + 1);
+      } else {
+        setIsPlaying(false);
+        setShowShare(true);
+      }
     }, 3000); // 3 seconds per slide
     
     return () => clearTimeout(timer);
-  }, [currentSlide, isPlaying]);
+  }, [currentSlide, isPlaying, router]);
 
   const startPlayback = () => {
     setCurrentSlide(0);
@@ -271,24 +278,24 @@ export default function PlayerRewindExperiencePage() {
       
       case 1: // Overall Stats
         return (
-          <div className="text-center space-y-8">
-            <h2 className="text-5xl font-bold text-white mb-8">Overall Performance</h2>
-            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
-                <div className="text-5xl font-bold text-white mb-2">{aggregatedStats.winRate}%</div>
-                <div className="text-white/80">Win Rate</div>
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">📊</div>
+            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Overall Performance</h2>
+            <p className="text-2xl text-white/90 mb-8">
+              {aggregatedStats.winRate}% Win Rate • {aggregatedStats.avgKDA} KDA • {aggregatedStats.totalKills} Kills • {aggregatedStats.totalAssists} Assists
+            </p>
+            <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto mt-8">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalGold).toLocaleString()}</div>
+                <div className="text-white/80">Total Gold</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
-                <div className="text-5xl font-bold text-white mb-2">{aggregatedStats.avgKDA}</div>
-                <div className="text-white/80">Average KDA</div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalCS)}</div>
+                <div className="text-white/80">Total CS</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
-                <div className="text-5xl font-bold text-white mb-2">{aggregatedStats.totalKills}</div>
-                <div className="text-white/80">Total Kills</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
-                <div className="text-5xl font-bold text-white mb-2">{aggregatedStats.totalAssists}</div>
-                <div className="text-white/80">Total Assists</div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalDamage).toLocaleString()}</div>
+                <div className="text-white/80">Total Damage</div>
               </div>
             </div>
           </div>
@@ -296,35 +303,39 @@ export default function PlayerRewindExperiencePage() {
       
       case 2: // Damage Stats
         return (
-          <div className="text-center space-y-8">
-            <h2 className="text-5xl font-bold text-white mb-8">🔥 Damage Dealt</h2>
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">🔥</div>
+            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Damage Dealt</h2>
+            <p className="text-2xl text-white/90 mb-8">
+              {parseInt(aggregatedStats.totalDamage).toLocaleString()} total damage
+            </p>
             <div className="bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 max-w-2xl mx-auto">
-              <div className="text-7xl font-bold text-orange-400 mb-4">{parseInt(aggregatedStats.totalDamage).toLocaleString()}</div>
-              <div className="text-2xl text-white/80 mb-6">Total Damage to Champions</div>
-              <div className="text-3xl font-semibold text-white">{parseInt(aggregatedStats.avgDamage).toLocaleString()} avg per match</div>
+              <div className="text-7xl font-bold text-orange-400 mb-4">{parseInt(aggregatedStats.avgDamage).toLocaleString()}</div>
+              <div className="text-2xl text-white/80">Average per match</div>
             </div>
           </div>
         );
       
       case 3: // Best Champion
         return (
-          <div className="text-center space-y-8">
-            <h2 className="text-5xl font-bold text-white mb-8">⭐ Best Champion</h2>
-            <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-xl p-8 border border-yellow-400/30 max-w-2xl mx-auto">
-              <div className="text-6xl font-bold text-yellow-300 mb-4">{aggregatedStats.bestChampion}</div>
-              <div className="grid grid-cols-3 gap-4 mt-6">
-                <div>
-                  <div className="text-3xl font-bold text-white">{aggregatedStats.bestChampionStats.played}</div>
-                  <div className="text-white/80">Played</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-green-400">{aggregatedStats.bestChampionStats.winRate}%</div>
-                  <div className="text-white/80">Win Rate</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-white">{aggregatedStats.bestChampionStats.avgKDA}</div>
-                  <div className="text-white/80">Avg KDA</div>
-                </div>
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">⭐</div>
+            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Best Champion</h2>
+            <p className="text-2xl text-white/90 mb-8">
+              {aggregatedStats.bestChampion}
+            </p>
+            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-white mb-2">{aggregatedStats.bestChampionStats.played}</div>
+                <div className="text-white/80">Played</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-green-400 mb-2">{aggregatedStats.bestChampionStats.winRate}%</div>
+                <div className="text-white/80">Win Rate</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div className="text-3xl font-bold text-white mb-2">{aggregatedStats.bestChampionStats.avgKDA}</div>
+                <div className="text-white/80">Avg KDA</div>
               </div>
             </div>
           </div>
@@ -332,11 +343,15 @@ export default function PlayerRewindExperiencePage() {
       
       case 4: // Champion Pool
         return (
-          <div className="text-center space-y-8">
-            <h2 className="text-5xl font-bold text-white mb-8">🎮 Champion Pool</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">🎮</div>
+            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Champion Pool</h2>
+            <p className="text-2xl text-white/90 mb-8">
+              {aggregatedStats.championPool.length} unique champions
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mt-8">
               {aggregatedStats.championPool.map((champ, idx) => (
-                <div key={idx} className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
+                <div key={idx} className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
                   <div className="text-2xl font-bold text-white mb-2">{champ.champion}</div>
                   <div className="text-sm text-white/80 mb-3">{champ.played} game{champ.played > 1 ? 's' : ''}</div>
                   <div className="flex justify-between text-sm">
@@ -351,15 +366,19 @@ export default function PlayerRewindExperiencePage() {
       
       case 5: // Vision & Utility
         return (
-          <div className="text-center space-y-8">
-            <h2 className="text-5xl font-bold text-white mb-8">👁️ Vision & Utility</h2>
-            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">👁️</div>
+            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Vision & Utility</h2>
+            <p className="text-2xl text-white/90 mb-8">
+              {aggregatedStats.firstBloods} first bloods at {aggregatedStats.firstBloodRate}% rate
+            </p>
+            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto mt-8">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-5xl font-bold text-blue-400 mb-2">{parseInt(aggregatedStats.totalVision).toLocaleString()}</div>
                 <div className="text-white/80">Total Vision Score</div>
                 <div className="text-2xl font-semibold text-white mt-4">{parseFloat(aggregatedStats.avgVision).toLocaleString()} avg</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-5xl font-bold text-red-400 mb-2">{aggregatedStats.firstBloods}</div>
                 <div className="text-white/80">First Bloods</div>
                 <div className="text-2xl font-semibold text-white mt-4">{aggregatedStats.firstBloodRate}% rate</div>
@@ -435,7 +454,10 @@ export default function PlayerRewindExperiencePage() {
 
           {/* Rewind Slides */}
           <div className="mb-12">
-            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-sm rounded-2xl border-2 border-white/20 p-12 shadow-2xl">
+            <div 
+              key={currentSlide}
+              className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-sm rounded-2xl border-2 border-white/20 p-12 shadow-2xl animate-fadeIn"
+            >
               <div className="min-h-[400px] flex items-center justify-center">
                 {renderSlide()}
               </div>
@@ -492,8 +514,32 @@ export default function PlayerRewindExperiencePage() {
                   />
                 </div>
               </div>
+
             </div>
           </div>
+
+          {/* Share Section - Shown after rewind completes */}
+          {showShare && (
+            <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-fadeIn">
+              <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-lg rounded-2xl p-6 border-2 border-white/30 shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white text-xl font-bold">Share This Rewind</h3>
+                  <button
+                    onClick={() => router.push(`/player/${puuid}/rewind`)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <RewindShare 
+                  title={`${playerName}'s Performance Rewind`}
+                  description={aggregatedStats ? `Win Rate: ${aggregatedStats.winRate}% • KDA: ${aggregatedStats.avgKDA}` : 'Last 5 matches performance'}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Back Button */}
           <div className="text-center">
