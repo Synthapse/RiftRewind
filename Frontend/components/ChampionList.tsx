@@ -6,7 +6,7 @@ import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
 import MatchTimeline from './MatchTimeline';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
-import { formatAnalysisText } from '@/lib/format-analysis.tsx';
+import { formatAnalysisText } from '@/lib/format-analysis';
 
 interface MatchData {
   metadata: {

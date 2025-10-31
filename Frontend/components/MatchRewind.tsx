@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatAnalysisText } from '@/lib/format-analysis.tsx';
+import { formatAnalysisText } from '@/lib/format-analysis';
 
 interface TimelineData {
   metadata: {
