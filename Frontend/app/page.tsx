@@ -47,7 +47,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Floating Theme Toggle */}
       <div className="fixed top-4 right-4 z-50">
         <button
@@ -55,7 +55,7 @@ export default function Home() {
           className={`p-3 rounded-full shadow-lg transition-all duration-200 ${
             theme === 'light' 
               ? 'bg-white hover:bg-gray-100 text-gray-600' 
-              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              : 'bg-[#121212] hover:bg-[#1a1a1a] text-gray-300'
           }`}
           aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
           title={`Current: ${theme} theme - Click to switch to ${theme === 'light' ? 'dark' : 'light'}`}
@@ -73,22 +73,22 @@ export default function Home() {
       </div>
 
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-blue-50 to-gray-100 dark:bg-[#0a0a0a] overflow-hidden">
         {/* Background overlay */}
-        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="absolute inset-0 bg-black/5 dark:bg-[#0a0a0a]"></div>
         
         {/* Content */}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Text content */}
             <div className="text-center lg:text-left space-y-6 overflow-visible relative z-10">
-              <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight">
+              <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
                 RiftRewind
               </h1>
-              <p className="text-xl md:text-2xl text-blue-100 font-light">
+              <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 font-light">
                 Your Ultimate League of Legends Match Analyzer
               </p>
-              <div className="space-y-4 text-gray-200">
+              <div className="space-y-4 text-gray-700 dark:text-gray-300">
                 <p className="text-base">
                   Dive deep into your League of Legends matches with advanced analytics, AI-powered insights, and comprehensive performance tracking.
                 </p>
@@ -116,16 +116,16 @@ export default function Home() {
 
               {/* Match Lookup Input */}
               <div className="pt-4">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 overflow-visible">
+                <div className="bg-white/80 dark:bg-[#121212] rounded-lg p-4 border border-gray-200 dark:border-gray-800 overflow-visible shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <label className="block text-sm font-medium text-white">
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white">
                       Enter Match ID
                     </label>
                     <div className="group relative flex items-center gap-1 overflow-visible">
-                      <svg className="w-4 h-4 text-white/60 hover:text-white cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="text-white/60 text-xs hover:text-white cursor-help">How to find Match ID</span>
+                      <span className="text-gray-600 dark:text-white/60 text-xs hover:text-gray-900 dark:hover:text-white cursor-help">How to find Match ID</span>
                       <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-[9999] pointer-events-none">
                         <div className="bg-gray-900 text-white text-base rounded-lg p-6 shadow-2xl border border-gray-700 w-[800px] pointer-events-auto">
                           <p className="mb-2 font-semibold">This is available in your League of Legends client match history</p>
@@ -144,7 +144,7 @@ export default function Home() {
                       id="hero-match-id-input"
                       type="text"
                       placeholder="EUN1_3849902044"
-                      className="flex-1 px-4 py-2 rounded-md bg-white/90 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
+                      className="flex-1 px-4 py-2 rounded-md bg-white dark:bg-[#181818] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-gray-600"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           const input = document.getElementById('hero-match-id-input') as HTMLInputElement;
@@ -191,7 +191,7 @@ export default function Home() {
                           }, 100);
                         }
                       }}
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-md font-medium transition-colors border border-blue-700 dark:border-gray-800"
                     >
                       Search
                     </button>
@@ -203,12 +203,12 @@ export default function Home() {
                       {s3Counts.totalCount > 0 ? (
                         <Link
                           href="/analysis"
-                          className="text-white/80 text-sm underline hover:text-white transition-colors cursor-pointer"
+                          className="text-gray-700 dark:text-white/80 text-sm underline hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
                         >
                           {s3Counts.totalCount} match & player analysis
                         </Link>
                       ) : (
-                        <span className="text-white/80 text-sm">No analysis yet</span>
+                        <span className="text-gray-700 dark:text-white/80 text-sm">No analysis yet</span>
                       )}
                     </div>
                   )}
@@ -238,7 +238,7 @@ export default function Home() {
                       />
                     </div>
                   ))}
-                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/50 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-blue-50/80 dark:from-[#0a0a0a]/80 to-transparent"></div>
                 </div>
               </div>
             </div>

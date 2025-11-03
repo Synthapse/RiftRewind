@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Champion, ChampionData } from '@/types/champion';
+import PlayerPerformanceWidget from '@/components/widgets/PlayerPerformanceWidget';
+import Player5MatchesWidget from '@/components/widgets/Player5MatchesWidget';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -492,7 +494,7 @@ Focus on actionable insights that can help the player improve their gameplay.`;
   }, [puuid]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Floating Theme Toggle */}
       <div className="fixed top-4 right-4 z-50">
         <button
@@ -500,7 +502,7 @@ Focus on actionable insights that can help the player improve their gameplay.`;
           className={`p-3 rounded-full shadow-lg transition-all duration-200 ${
             theme === 'light' 
               ? 'bg-white hover:bg-gray-100 text-gray-600' 
-              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              : 'bg-[#121212] hover:bg-[#1a1a1a] text-gray-300'
           }`}
           aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
           title={`Current: ${theme} theme - Click to switch to ${theme === 'light' ? 'dark' : 'light'}`}
@@ -527,12 +529,12 @@ Focus on actionable insights that can help the player improve their gameplay.`;
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="max-w-6xl mx-auto mb-8 mt-16">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => router.back()}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-colors"
                 >
                   <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -552,25 +554,25 @@ Focus on actionable insights that can help the player improve their gameplay.`;
                 <button
                   onClick={() => router.push(`/player/${puuid}/rewind`)}
                   disabled={playerMatches.length === 0}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors flex items-center space-x-2 border border-gray-200 dark:border-gray-800"
                 >
                   <span>⏪</span>
-                  <span>Player Rewind (5 matches)</span>
+                  <span>Rewind</span>
                 </button>
                 <button
                   onClick={analyzePlayerPerformance}
                   disabled={analyzing || playerMatches.length === 0}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors flex items-center space-x-2 border border-gray-200 dark:border-gray-800"
                 >
                   {analyzing ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-gray-500 dark:border-gray-300 border-t-transparent rounded-full animate-spin"></div>
                       <span>Analyzing...</span>
                     </>
                   ) : (
                     <>
                       <span>🤖</span>
-                      <span>Analyze Player Performance</span>
+                      <span>Analyze</span>
                     </>
                   )}
                 </button>
@@ -591,84 +593,34 @@ Focus on actionable insights that can help the player improve their gameplay.`;
         {/* Loading State */}
         {loadingMatches && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-8">
               <div className="flex items-center justify-center py-12">
-                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-12 h-12 border-4 border-blue-500 dark:border-gray-500 border-t-transparent rounded-full animate-spin"></div>
                 <span className="ml-4 text-gray-600 dark:text-gray-400">Loading player matches...</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Matches List */}
+        {/* Player Performance Widget */}
         {!loadingMatches && playerMatches.length > 0 && (
           <div className="max-w-6xl mx-auto mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Recent Matches ({playerMatches.length})</h2>
-              
-              <div className="space-y-3">
-                {playerMatches.map((match, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-lg ${
-                      match.win
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-700 hover:border-green-600'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-700 hover:border-red-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className={`px-3 py-1 rounded-md text-sm font-semibold min-w-[80px] text-center ${
-                          match.win ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                        }`}>
-                          {match.win ? '✓ Victory' : '✗ Defeat'}
-                        </div>
-                        
-                        <div className="flex items-center space-x-4">
-                          <div className="font-bold text-lg text-gray-900 dark:text-white">
-                            {match.champion}
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-400 text-sm">
-                            {match.gameMode}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <div className="text-gray-900 dark:text-white font-semibold text-lg">
-                            {match.kills}/{match.deaths}/{match.assists}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            KDA
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-6">
-                        <div className="text-gray-500 dark:text-gray-400 text-sm">
-                          {Math.floor(match.gameDuration / 60)}:{(match.gameDuration % 60).toString().padStart(2, '0')}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(match.gameCreation).toLocaleDateString()}
-                        </div>
-                        <Link
-                          href={`/match/${match.matchId}/rewind`}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors text-sm"
-                        >
-                          ⏪ Rewind
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="mb-6">
+              <PlayerPerformanceWidget puuid={puuid} matchId={playerMatches[0]?.matchId} />
             </div>
+          </div>
+        )}
+
+        {/* Player 5 Matches Widget - Replaces Recent Matches */}
+        {!loadingMatches && playerMatches.length > 0 && (
+          <div className="max-w-6xl mx-auto mb-8">
           </div>
         )}
 
         {/* Analysis Result */}
         {analysisResult && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="text-4xl">🤖</div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -751,7 +703,7 @@ Focus on actionable insights that can help the player improve their gameplay.`;
         {/* No Matches State */}
         {!loadingMatches && playerMatches.length === 0 && !error && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-8">
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📊</div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">No Matches Found</h3>

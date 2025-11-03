@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Player5MatchesWidget from '@/components/widgets/Player5MatchesWidget';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -256,10 +257,10 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#181818] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading player matches...</p>
+          <div className="w-16 h-16 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Loading player matches...</p>
         </div>
       </div>
     );
@@ -267,14 +268,14 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
 
   if (error || matches.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#181818] flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">😢</div>
           <h1 className="text-3xl font-bold text-white mb-2">Failed to Load Matches</h1>
-          <p className="text-white/80 mb-6">{error || 'No matches found'}</p>
+          <p className="text-gray-400 mb-6">{error || 'No matches found'}</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-3 bg-white text-purple-900 rounded-lg font-semibold hover:bg-white/90 transition-colors"
+            className="px-6 py-3 bg-[#121212] text-white rounded-lg font-semibold hover:bg-[#1a1a1a] transition-colors border border-gray-800"
           >
             Go Back
           </button>
@@ -293,7 +294,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
   const avgKDA = ((totalKills + totalAssists) / totalDeaths).toFixed(2);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-[#181818]">
       {/* Theme Toggle */}
       <div className="fixed top-4 right-4 z-50">
         <button
@@ -340,7 +341,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
               <button
                 onClick={startRewind}
                 disabled={matches.length === 0}
-                className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl"
+                className="px-6 py-3 bg-[#121212] hover:bg-[#1a1a1a] disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl border border-gray-800"
               >
                 <span>⏪</span>
                 <span>Start Rewind Experience</span>
@@ -348,7 +349,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
               <button
                 onClick={fetchAIAnalysis}
                 disabled={analyzing || matches.length === 0}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl"
+                className="px-6 py-3 bg-[#121212] hover:bg-[#1a1a1a] disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center space-x-2 shadow-lg hover:shadow-xl border border-gray-800"
               >
                 {analyzing ? (
                   <>
@@ -365,22 +366,30 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
             </div>
           </div>
 
+          {/* Player 5 Matches Widget */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-white mb-4 text-center">Player 5 Matches Widget</h2>
+            <div className="max-w-md mx-auto">
+              <Player5MatchesWidget puuid={puuid} />
+            </div>
+          </div>
+
           {/* Overall Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Win Rate</div>
+            <div className="bg-[#121212] rounded-lg p-6 border border-gray-800">
+              <div className="text-gray-400 text-sm mb-2">Win Rate</div>
               <div className="text-4xl font-bold text-white">{winRate}%</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Average KDA</div>
+            <div className="bg-[#121212] rounded-lg p-6 border border-gray-800">
+              <div className="text-gray-400 text-sm mb-2">Average KDA</div>
               <div className="text-4xl font-bold text-white">{avgKDA}</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Total Kills</div>
+            <div className="bg-[#121212] rounded-lg p-6 border border-gray-800">
+              <div className="text-gray-400 text-sm mb-2">Total Kills</div>
               <div className="text-4xl font-bold text-white">{totalKills}</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Total Assists</div>
+            <div className="bg-[#121212] rounded-lg p-6 border border-gray-800">
+              <div className="text-gray-400 text-sm mb-2">Total Assists</div>
               <div className="text-4xl font-bold text-white">{totalAssists}</div>
             </div>
           </div>
@@ -390,10 +399,10 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
             {matches.map((match, index) => (
               <div
                 key={match.matchId}
-                className={`relative bg-white/10 backdrop-blur-sm rounded-lg p-6 border-2 transition-all hover:scale-105 ${
+                className={`relative bg-[#121212] rounded-lg p-6 border transition-all hover:scale-105 ${
                   match.win
-                    ? 'border-green-500 hover:border-green-400'
-                    : 'border-red-500 hover:border-red-400'
+                    ? 'border-green-600 hover:border-green-500'
+                    : 'border-red-600 hover:border-red-500'
                 }`}
               >
                 <div className="absolute top-4 right-4">
@@ -425,7 +434,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
                 
                 <button
                   onClick={() => router.push(`/match/${match.matchId}/rewind`)}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                  className="w-full px-4 py-2 bg-[#1a1a1a] hover:bg-[#222222] text-white rounded-lg font-medium transition-colors border border-gray-800"
                 >
                   ⏪ Rewind This Match
                 </button>
@@ -436,7 +445,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
           {/* AI Analysis Results */}
           {aiAnalysis && (
             <div className="mt-12">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
+              <div className="bg-[#121212] rounded-lg p-8 border border-gray-800">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="text-4xl">🤖</div>
                   <h2 className="text-3xl font-bold text-white">
@@ -522,7 +531,7 @@ Please provide the MOST INTERESTING insights from this aggregated data that woul
           <div className="mt-12 text-center">
             <button
               onClick={() => router.back()}
-              className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors"
+              className="px-8 py-3 bg-[#121212] hover:bg-[#1a1a1a] text-white rounded-lg font-semibold transition-colors border border-gray-800"
             >
               Back to Player Page
             </button>

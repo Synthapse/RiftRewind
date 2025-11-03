@@ -41,6 +41,12 @@ export default function Navigation() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
+            <Link 
+              href="/widgets" 
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Widgets
+            </Link>
             <ThemeToggle />
           </div>
         </div>

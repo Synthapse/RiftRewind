@@ -5,6 +5,9 @@ import { Champion, ChampionData } from '@/types/champion';
 import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
 import MatchTimeline from './MatchTimeline';
+import MatchDataWidget from './widgets/MatchDataWidget';
+import PlayerPerformanceWidget from './widgets/PlayerPerformanceWidget';
+import Player5MatchesWidget from './widgets/Player5MatchesWidget';
 import { RIOT_API_CONFIG, LAMBDA_CONFIG } from '@/lib/config';
 import { formatAnalysisText } from '@/lib/format-analysis';
 
@@ -125,7 +128,10 @@ export default function MatchLookup() {
   const [matchError, setMatchError] = useState<string | null>(null);
   
   // Tab state
-  const [activeTab, setActiveTab] = useState<'match' | 'timeline' | 'ai-analysis'>('match');
+  const [activeTab, setActiveTab] = useState<'match' | 'timeline' | 'ai-analysis' | 'widget'>('match');
+  
+  // Widget state
+  const [selectedPlayerPuuid, setSelectedPlayerPuuid] = useState<string>('');
   
   // Champion mapping states
   const [championMap, setChampionMap] = useState<Record<string, Champion>>({});
@@ -648,7 +654,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       <div className="container mx-auto px-4 py-8">
         {/* Hidden input for hero section integration */}
         <div className="hidden">
@@ -674,13 +680,13 @@ Please provide a detailed analysis focusing on this specific player's performanc
         {/* Tabs */}
         {matchData && (
           <div className="max-w-6xl mx-auto mb-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800">
+              <div className="flex border-b border-gray-200 dark:border-gray-800">
                 <button
                   onClick={() => setActiveTab('match')}
                   className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
                     activeTab === 'match'
-                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-300'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
@@ -691,7 +697,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                     onClick={() => setActiveTab('timeline')}
                     className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
                       activeTab === 'timeline'
-                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-300'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -703,11 +709,23 @@ Please provide a detailed analysis focusing on this specific player's performanc
                     onClick={() => setActiveTab('ai-analysis')}
                     className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
                       activeTab === 'ai-analysis'
-                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-100'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-300'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
                     Match Insights
+                  </button>
+                )}
+                {matchData && (
+                  <button
+                    onClick={() => setActiveTab('widget')}
+                    className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                      activeTab === 'widget'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-gray-300'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Widget
                   </button>
                 )}
               </div>
@@ -718,18 +736,18 @@ Please provide a detailed analysis focusing on this specific player's performanc
         {/* Match Data Display */}
         {matchData && activeTab === 'match' && (
           <div className="max-w-6xl mx-auto mb-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6 mb-6">
               <div className="mb-6 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Match Details</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={fetchAIAnalysis}
                     disabled={aiLoading}
-                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                    className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-800"
                   >
                     {aiLoading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
                         <span>AI Analyzing...</span>
                       </>
                     ) : (
@@ -739,7 +757,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                   {matchData.timeline && (
                     <a
                       href={`/match/${matchData.metadata.matchId}/rewind`}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white transition-colors font-medium border border-blue-700"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#181818] dark:hover:bg-[#1a1a1a] rounded-md text-white transition-colors font-medium border border-blue-700 dark:border-gray-800"
                     >
                       Rewind This Match
                     </a>
@@ -820,7 +838,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                       .map((participant, index) => {
                         const isExpanded = expandedPlayers.has(participant.puuid);
                         return (
-                          <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                          <div key={index} className="bg-gray-50 dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
                             {/* Player Header */}
                             <div className="p-4">
                               <div className="flex items-center justify-between mb-3">
@@ -899,11 +917,11 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                 <button
                                   onClick={() => fetchChampionAnalysis(participant)}
                                   disabled={championAnalysisLoading && selectedChampionForAnalysis === participant.puuid}
-                                  className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                  className="flex-1 p-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-800"
                                 >
                                   {championAnalysisLoading && selectedChampionForAnalysis === participant.puuid ? (
                                     <>
-                                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                      <div className="w-4 h-4 border-2 border-gray-500 dark:border-gray-300 border-t-transparent rounded-full animate-spin mr-2"></div>
                                       <span>Analyzing...</span>
                                     </>
                                   ) : (
@@ -914,7 +932,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                 {participant.championData && (
                                   <Link
                                     href={`/player/${participant.puuid}`}
-                                    className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                    className="flex-1 p-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-800"
                                   >
                                     View History
                                   </Link>
@@ -924,7 +942,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                             
                             {/* Detailed Stats (Accordion) */}
                             {isExpanded && (
-                              <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/40 dark:bg-gray-800/40">
+                              <div className="border-t border-gray-200 dark:border-gray-800 p-4 bg-white/40 dark:bg-[#121212]">
                                 <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                   <div className="space-y-2">
                                     <div className="flex justify-between">
@@ -1029,7 +1047,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                       .map((participant, index) => {
                         const isExpanded = expandedPlayers.has(participant.puuid);
                         return (
-                          <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                          <div key={index} className="bg-gray-50 dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
                             {/* Player Header */}
                             <div className="p-4">
                               <div className="flex items-center justify-between mb-3">
@@ -1087,7 +1105,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                   {/* Expand/Collapse Button */}
                                   <button
                                     onClick={() => togglePlayerExpansion(participant.puuid)}
-                                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                    className="p-2 hover:bg-gray-200 dark:hover:bg-[#1a1a1a] rounded-lg transition-colors"
                                   >
                                     <svg
                                       className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${
@@ -1108,11 +1126,11 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                 <button
                                   onClick={() => fetchChampionAnalysis(participant)}
                                   disabled={championAnalysisLoading && selectedChampionForAnalysis === participant.puuid}
-                                  className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                  className="flex-1 p-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-800"
                                 >
                                   {championAnalysisLoading && selectedChampionForAnalysis === participant.puuid ? (
                                     <>
-                                      <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                      <div className="w-4 h-4 border-2 border-gray-500 dark:border-gray-300 border-t-transparent rounded-full animate-spin mr-2"></div>
                                       <span>Analyzing...</span>
                                     </>
                                   ) : (
@@ -1123,7 +1141,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                                 {participant.championData && (
                                   <Link
                                     href={`/player/${participant.puuid}`}
-                                    className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                                    className="flex-1 p-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 rounded-md transition-colors text-sm font-medium flex items-center justify-center border border-gray-200 dark:border-gray-800"
                                   >
                                     View History
                                   </Link>
@@ -1133,7 +1151,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                             
                             {/* Detailed Stats (Accordion) */}
                             {isExpanded && (
-                              <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/40 dark:bg-gray-800/40">
+                              <div className="border-t border-gray-800 p-4 bg-[#121212]">
                                 <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                   <div className="space-y-2">
                                     <div className="flex justify-between">
@@ -1296,7 +1314,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
         {/* Timeline Tab Content */}
         {matchData && activeTab === 'timeline' && matchData.timeline && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
               <MatchTimeline 
                 timeline={matchData.timeline} 
                 participants={matchData.info.participants}
@@ -1305,10 +1323,159 @@ Please provide a detailed analysis focusing on this specific player's performanc
           </div>
         )}
 
+        {/* Widget Tab Content */}
+        {matchData && activeTab === 'widget' && (
+          <div className="max-w-6xl mx-auto">
+            <div className="space-y-6">
+              {/* Match Data Widget */}
+              <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Match Data Widget</h2>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={`/widgets-share?type=match&matchId=${matchData.metadata.matchId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Open Shareable Page
+                    </a>
+                    <a
+                      href={`/embed/match/${matchData.metadata.matchId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View Embed Page
+                    </a>
+                  </div>
+                </div>
+                <div className="max-w-md mx-auto">
+                  <MatchDataWidget matchId={matchData.metadata.matchId} />
+                </div>
+              </div>
+
+              {/* Player Performance Widgets */}
+              <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Player Performance Widgets</h2>
+                <div className="mb-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Select Player (from this match)
+                    </label>
+                    <select
+                      value={selectedPlayerPuuid}
+                      onChange={(e) => {
+                        setSelectedPlayerPuuid(e.target.value);
+                      }}
+                      className="w-full px-4 py-2 bg-white dark:bg-[#181818] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-gray-600"
+                    >
+                      <option value="">Select a player...</option>
+                      {matchData.info.participants.map((p: any) => (
+                        <option key={p.puuid} value={p.puuid}>
+                          {p.riotIdGameName || p.summonerName} - {p.championName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {selectedPlayerPuuid && (
+                  <div className="space-y-6">
+                    {/* Player Performance Widget */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Player Performance Widget</h3>
+                        <div className="flex items-center gap-3">
+                          <a
+                            href={`/widgets-share?type=player&puuid=${selectedPlayerPuuid}&matchId=${matchData.metadata.matchId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Open Shareable Page
+                          </a>
+                          <a
+                            href={`/embed/player/${selectedPlayerPuuid}?matchId=${matchData.metadata.matchId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Embed Page
+                          </a>
+                        </div>
+                      </div>
+                      <div className="max-w-md mx-auto">
+                        <PlayerPerformanceWidget 
+                          puuid={selectedPlayerPuuid} 
+                          matchId={matchData.metadata.matchId}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Player 5 Matches Widget */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Player 5 Matches Widget</h3>
+                        <div className="flex items-center gap-3">
+                          <a
+                            href={`/widgets-share?type=matches&puuid=${selectedPlayerPuuid}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Open Shareable Page
+                          </a>
+                          <a
+                            href={`/embed/player/${selectedPlayerPuuid}/matches`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-[#121212] dark:hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-blue-700 dark:border-gray-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Embed Page
+                          </a>
+                        </div>
+                      </div>
+                      <div className="max-w-md mx-auto">
+                        <Player5MatchesWidget puuid={selectedPlayerPuuid} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!selectedPlayerPuuid && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    Select a player from the dropdown above to view their widgets
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* AI Analysis Tab Content */}
         {matchData && activeTab === 'ai-analysis' && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <div className="text-4xl">🤖</div>
@@ -1321,11 +1488,11 @@ Please provide a detailed analysis focusing on this specific player's performanc
                     <button
                       onClick={fetchAIAnalysis}
                       disabled={aiLoading}
-                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                      className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-gray-700 dark:text-gray-300 transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-800"
                     >
                       {aiLoading ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-gray-400 dark:border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                           <span>Analyzing...</span>
                         </>
                       ) : (
@@ -1339,7 +1506,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                         setChampionAnalysis(null);
                         setSelectedChampionForAnalysis(null);
                       }}
-                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-600"
+                      className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 rounded-md transition-colors flex items-center space-x-2 font-medium border border-gray-200 dark:border-gray-800"
                     >
                       Back to Match Analysis
                     </button>

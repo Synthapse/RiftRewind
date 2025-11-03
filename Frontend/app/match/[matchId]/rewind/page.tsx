@@ -94,10 +94,10 @@ export default function RewindPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading match data...</p>
+          <div className="w-16 h-16 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Loading match data...</p>
         </div>
       </div>
     );
@@ -105,14 +105,14 @@ export default function RewindPage() {
 
   if (error || !matchData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
           <div className="text-6xl mb-4">😢</div>
           <h1 className="text-3xl font-bold text-white mb-2">Failed to Load Match</h1>
-          <p className="text-white/80 mb-6">{error || 'Unknown error'}</p>
+          <p className="text-gray-400 mb-6">{error || 'Unknown error'}</p>
           <a
             href="/"
-            className="px-6 py-3 bg-white text-purple-900 rounded-lg font-semibold hover:bg-white/90 transition-colors"
+            className="px-6 py-3 bg-[#121212] text-white rounded-lg font-semibold hover:bg-[#1a1a1a] transition-colors border border-gray-800"
           >
             Go Back Home
           </a>

@@ -269,10 +269,10 @@ export default function PlayerRewindExperiencePage() {
       case 0: // Intro
         return (
           <div className="text-center">
-            <div className="text-8xl mb-8 animate-bounce">⏪</div>
-            <h2 className="text-6xl font-bold text-white mb-6">Performance Rewind</h2>
-            <p className="text-2xl text-white/80 mb-4">{playerName}</p>
-            <p className="text-xl text-white/60">Last 5 Matches</p>
+            <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">⏪</div>
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Performance Rewind</h1>
+            <p className="text-2xl text-white/90 text-center mb-4">{playerName}</p>
+            <p className="text-xl text-white/60 text-center">Last 5 Matches</p>
           </div>
         );
       
@@ -280,22 +280,22 @@ export default function PlayerRewindExperiencePage() {
         return (
           <div className="text-center">
             <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">📊</div>
-            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Overall Performance</h2>
-            <p className="text-2xl text-white/90 mb-8">
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Overall Performance</h1>
+            <p className="text-2xl text-white/90 text-center mb-8">
               {aggregatedStats.winRate}% Win Rate • {aggregatedStats.avgKDA} KDA • {aggregatedStats.totalKills} Kills • {aggregatedStats.totalAssists} Assists
             </p>
             <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto mt-8">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalGold).toLocaleString()}</div>
-                <div className="text-white/80">Total Gold</div>
+                <div className="text-gray-300">Total Gold</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalCS)}</div>
-                <div className="text-white/80">Total CS</div>
+                <div className="text-gray-300">Total CS</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-white mb-2">{parseInt(aggregatedStats.totalDamage).toLocaleString()}</div>
-                <div className="text-white/80">Total Damage</div>
+                <div className="text-gray-300">Total Damage</div>
               </div>
             </div>
           </div>
@@ -305,13 +305,13 @@ export default function PlayerRewindExperiencePage() {
         return (
           <div className="text-center">
             <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">🔥</div>
-            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Damage Dealt</h2>
-            <p className="text-2xl text-white/90 mb-8">
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Damage Dealt</h1>
+            <p className="text-2xl text-white/90 text-center mb-8">
               {parseInt(aggregatedStats.totalDamage).toLocaleString()} total damage
             </p>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 max-w-2xl mx-auto">
+            <div className="bg-[#181818] rounded-lg p-8 border border-gray-800 max-w-2xl mx-auto">
               <div className="text-7xl font-bold text-orange-400 mb-4">{parseInt(aggregatedStats.avgDamage).toLocaleString()}</div>
-              <div className="text-2xl text-white/80">Average per match</div>
+              <div className="text-2xl text-gray-300">Average per match</div>
             </div>
           </div>
         );
@@ -320,22 +320,22 @@ export default function PlayerRewindExperiencePage() {
         return (
           <div className="text-center">
             <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">⭐</div>
-            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Best Champion</h2>
-            <p className="text-2xl text-white/90 mb-8">
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Best Champion</h1>
+            <p className="text-2xl text-white/90 text-center mb-8">
               {aggregatedStats.bestChampion}
             </p>
             <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-white mb-2">{aggregatedStats.bestChampionStats.played}</div>
-                <div className="text-white/80">Played</div>
+                <div className="text-gray-300">Played</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-green-400 mb-2">{aggregatedStats.bestChampionStats.winRate}%</div>
-                <div className="text-white/80">Win Rate</div>
+                <div className="text-gray-300">Win Rate</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-3xl font-bold text-white mb-2">{aggregatedStats.bestChampionStats.avgKDA}</div>
-                <div className="text-white/80">Avg KDA</div>
+                <div className="text-gray-300">Avg KDA</div>
               </div>
             </div>
           </div>
@@ -345,15 +345,15 @@ export default function PlayerRewindExperiencePage() {
         return (
           <div className="text-center">
             <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">🎮</div>
-            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Champion Pool</h2>
-            <p className="text-2xl text-white/90 mb-8">
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Champion Pool</h1>
+            <p className="text-2xl text-white/90 text-center mb-8">
               {aggregatedStats.championPool.length} unique champions
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mt-8">
               {aggregatedStats.championPool.map((champ, idx) => (
-                <div key={idx} className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+                <div key={idx} className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                   <div className="text-2xl font-bold text-white mb-2">{champ.champion}</div>
-                  <div className="text-sm text-white/80 mb-3">{champ.played} game{champ.played > 1 ? 's' : ''}</div>
+                  <div className="text-sm text-gray-400 mb-3">{champ.played} game{champ.played > 1 ? 's' : ''}</div>
                   <div className="flex justify-between text-sm">
                     <span className="text-green-400 font-semibold">{champ.winRate}% WR</span>
                     <span className="text-white font-semibold">{champ.avgKDA} KDA</span>
@@ -368,19 +368,19 @@ export default function PlayerRewindExperiencePage() {
         return (
           <div className="text-center">
             <div className="text-8xl mb-8 animate-bounce drop-shadow-2xl">👁️</div>
-            <h2 className="text-6xl font-bold text-white mb-6 drop-shadow-lg">Vision & Utility</h2>
-            <p className="text-2xl text-white/90 mb-8">
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Vision & Utility</h1>
+            <p className="text-2xl text-white/90 text-center mb-8">
               {aggregatedStats.firstBloods} first bloods at {aggregatedStats.firstBloodRate}% rate
             </p>
             <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto mt-8">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-5xl font-bold text-blue-400 mb-2">{parseInt(aggregatedStats.totalVision).toLocaleString()}</div>
-                <div className="text-white/80">Total Vision Score</div>
+                <div className="text-gray-300">Total Vision Score</div>
                 <div className="text-2xl font-semibold text-white mt-4">{parseFloat(aggregatedStats.avgVision).toLocaleString()} avg</div>
               </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30 hover:scale-110 hover:shadow-xl transition-transform">
+              <div className="bg-[#181818] rounded-lg p-6 border border-gray-800 hover:scale-110 hover:shadow-xl transition-transform">
                 <div className="text-5xl font-bold text-red-400 mb-2">{aggregatedStats.firstBloods}</div>
-                <div className="text-white/80">First Bloods</div>
+                <div className="text-gray-300">First Bloods</div>
                 <div className="text-2xl font-semibold text-white mt-4">{aggregatedStats.firstBloodRate}% rate</div>
               </div>
             </div>
@@ -390,10 +390,10 @@ export default function PlayerRewindExperiencePage() {
       case 6: // Outro
         return (
           <div className="text-center space-y-8">
-            <div className="text-8xl mb-8 animate-pulse">🎉</div>
-            <h2 className="text-6xl font-bold text-white mb-6">Great Performance!</h2>
-            <p className="text-2xl text-white/80 mb-4">{aggregatedStats.winRate}% Win Rate</p>
-            <p className="text-xl text-white/60">{aggregatedStats.avgKDA} Average KDA</p>
+            <div className="text-8xl mb-8 animate-pulse drop-shadow-2xl">🎉</div>
+            <h1 className="text-6xl font-bold text-white text-center mb-6 drop-shadow-lg">Great Performance!</h1>
+            <p className="text-2xl text-white/80 text-center mb-4">{aggregatedStats.winRate}% Win Rate</p>
+            <p className="text-xl text-white/60 text-center">{aggregatedStats.avgKDA} Average KDA</p>
           </div>
         );
       
@@ -404,10 +404,10 @@ export default function PlayerRewindExperiencePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading rewind experience...</p>
+          <div className="w-16 h-16 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Loading rewind experience...</p>
         </div>
       </div>
     );
@@ -415,14 +415,14 @@ export default function PlayerRewindExperiencePage() {
 
   if (error || !aggregatedStats) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
           <div className="text-6xl mb-4">😢</div>
           <h1 className="text-3xl font-bold text-white mb-2">Failed to Load Experience</h1>
           <p className="text-white/80 mb-6">{error || 'No matches found'}</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-3 bg-white text-purple-900 rounded-lg font-semibold hover:bg-white/90 transition-colors"
+            className="px-6 py-3 bg-[#121212] hover:bg-[#1a1a1a] text-white rounded-lg font-semibold transition-colors border border-gray-800"
           >
             Go Back
           </button>
@@ -431,127 +431,115 @@ export default function PlayerRewindExperiencePage() {
     );
   }
 
+  const totalSlides = 7;
+  const progress = ((currentSlide + 1) / totalSlides) * 100;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-12 text-center">
-            <div className="flex items-center justify-center space-x-4 mb-4">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 className="text-5xl font-bold text-white mb-2">Player Rewind</h1>
+    <div className="min-h-screen bg-[#181818] relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gray-700 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gray-800 rounded-full blur-3xl"></div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-20">
+        <div 
+          className="h-full bg-gray-600 transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+
+      {/* Navigation Dots - Bottom Right */}
+      <div className="fixed bottom-8 right-8 z-20 flex items-center gap-2">
+        {Array.from({ length: totalSlides }).map((_, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setCurrentSlide(index);
+              setIsPlaying(false);
+            }}
+            className={`w-3 h-3 rounded-full transition-all ${
+              index === currentSlide
+                ? 'bg-gray-300 w-3 h-3'
+                : 'bg-gray-600 hover:bg-gray-500'
+            }`}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Main slide content */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-8">
+        <div className="w-full max-w-4xl">
+          {/* Slide container */}
+          <div
+            key={currentSlide}
+            className="bg-[#121212] rounded-lg p-12 border border-gray-800 shadow-2xl transition-all duration-500 animate-fadeIn"
+          >
+            <div className="min-h-[400px] flex items-center justify-center">
+              {renderSlide()}
             </div>
-            <p className="text-2xl text-white/80 mb-2">{playerName}</p>
-            <p className="text-lg text-white/60">Last 5 Matches Performance</p>
-          </div>
-
-          {/* Rewind Slides */}
-          <div className="mb-12">
-            <div 
-              key={currentSlide}
-              className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-sm rounded-2xl border-2 border-white/20 p-12 shadow-2xl animate-fadeIn"
-            >
-              <div className="min-h-[400px] flex items-center justify-center">
-                {renderSlide()}
-              </div>
-              
-              {/* Controls */}
-              <div className="mt-8 flex items-center justify-center gap-4">
-                <button
-                  onClick={prevSlide}
-                  disabled={currentSlide === 0}
-                  className="p-3 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-colors"
-                >
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                
-                {!isPlaying ? (
-                  <button
-                    onClick={startPlayback}
-                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    ▶️ Play
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopPlayback}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    ⏸️ Pause
-                  </button>
-                )}
-                
-                <button
-                  onClick={nextSlide}
-                  disabled={currentSlide >= 6}
-                  className="p-3 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed rounded-lg transition-colors"
-                >
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-              
-              {/* Progress */}
-              <div className="mt-6">
-                <div className="flex justify-between text-white/60 text-sm mb-2">
-                  <span>Slide {currentSlide + 1} of 7</span>
-                  <span>{Math.round(((currentSlide + 1) / 7) * 100)}%</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${((currentSlide + 1) / 7) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Share Section - Shown after rewind completes */}
-          {showShare && (
-            <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-fadeIn">
-              <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-lg rounded-2xl p-6 border-2 border-white/30 shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-white text-xl font-bold">Share This Rewind</h3>
-                  <button
-                    onClick={() => router.push(`/player/${puuid}/rewind`)}
-                    className="text-white/60 hover:text-white transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <RewindShare 
-                  title={`${playerName}'s Performance Rewind`}
-                  description={aggregatedStats ? `Win Rate: ${aggregatedStats.winRate}% • KDA: ${aggregatedStats.avgKDA}` : 'Last 5 matches performance'}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Back Button */}
-          <div className="text-center">
-            <button
-              onClick={() => router.push(`/player/${puuid}/rewind`)}
-              className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors"
-            >
-              Back to Player Rewind
-            </button>
           </div>
         </div>
       </div>
+
+      {/* Share Section - Shown after rewind completes - Bottom Left */}
+      {showShare && (
+        <div className="fixed bottom-8 left-8 z-50 animate-fadeIn">
+          <div className="bg-[#121212] rounded-lg p-6 border border-gray-800 shadow-2xl max-w-sm">
+            <div className="flex items-center justify-end mb-4">
+              <button
+                onClick={() => setShowShare(false)}
+                className="text-white/60 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <RewindShare 
+              title={`${playerName}'s Performance Rewind`}
+              description={aggregatedStats ? `Win Rate: ${aggregatedStats.winRate}% • KDA: ${aggregatedStats.avgKDA}` : 'Last 5 matches performance'}
+            />
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <a
+                href={`/widgets-share?type=matches&puuid=${puuid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full block px-4 py-2 bg-[#1a1a1a] hover:bg-[#222222] text-white rounded-lg font-medium transition-colors text-center border border-gray-800"
+              >
+                <svg className="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open Widget Page
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Start button */}
+      {!isPlaying && currentSlide === 0 && (
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
+          <button
+            onClick={startPlayback}
+            className="px-12 py-6 bg-[#121212] hover:bg-[#1a1a1a] text-white text-2xl font-bold rounded-lg shadow-2xl transition-all transform hover:scale-110 border border-gray-800"
+          >
+            Start Rewind
+          </button>
+        </div>
+      )}
+
+      {/* Play/Pause indicator */}
+      {isPlaying && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="flex items-center space-x-2 text-white/80">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span className="text-sm">Playing...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

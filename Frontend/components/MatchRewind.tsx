@@ -427,10 +427,10 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
 
   if (highlights.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading highlights...</p>
+          <div className="w-16 h-16 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Loading highlights...</p>
         </div>
       </div>
     );
@@ -440,43 +440,38 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
   const progress = ((currentSlide + 1) / highlights.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-[#181818] relative overflow-hidden">
       {/* Background effects */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
-      </div>
-
-      {/* Controls */}
-      <div className="absolute top-8 left-8 right-8 z-20 flex items-center justify-between">
-        <div className="text-white text-xl font-bold">Rift Rewind</div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={prevSlide}
-            disabled={currentSlide === 0}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all"
-          >
-            ← Prev
-          </button>
-          <div className="text-white text-sm">
-            {currentSlide + 1} / {highlights.length}
-          </div>
-          <button
-            onClick={nextSlide}
-            disabled={currentSlide === highlights.length - 1}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white transition-all"
-          >
-            Next →
-          </button>
-        </div>
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gray-700 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gray-800 rounded-full blur-3xl"></div>
       </div>
 
       {/* Progress bar */}
-      <div className="absolute top-20 left-0 right-0 h-1 bg-white/20 z-20">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-20">
         <div 
-          className="h-full bg-gradient-to-r from-purple-400 to-blue-400 transition-all duration-500"
+          className="h-full bg-gray-600 transition-all duration-500"
           style={{ width: `${progress}%` }}
         ></div>
+      </div>
+
+      {/* Navigation Dots - Bottom Right */}
+      <div className="fixed bottom-8 right-8 z-20 flex items-center gap-2">
+        {highlights.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setCurrentSlide(index);
+              setIsPlaying(false);
+            }}
+            className={`w-3 h-3 rounded-full transition-all ${
+              index === currentSlide
+                ? 'bg-gray-300 w-3 h-3'
+                : 'bg-gray-600 hover:bg-gray-500'
+            }`}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
       </div>
 
       {/* Main slide content */}
@@ -485,7 +480,7 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
           {/* Slide container */}
           <div 
             key={currentSlide}
-            className="bg-white/10 backdrop-blur-lg rounded-3xl p-12 border border-white/20 shadow-2xl transition-all duration-500 animate-fadeIn"
+            className="bg-[#121212] rounded-lg p-12 border border-gray-800 shadow-2xl transition-all duration-500 animate-fadeIn"
           >
             {/* Icon */}
             <div className="text-center mb-8">
@@ -505,8 +500,8 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
             {/* Time stamp */}
             {currentHighlight.timestamp > 0 && (
               <div className="text-center mb-8">
-                <div className="inline-block px-6 py-3 bg-white/20 rounded-full">
-                  <span className="text-white text-lg font-semibold">
+                <div className="inline-block px-6 py-3 bg-[#181818] rounded-full border border-gray-800">
+                  <span className="text-gray-300 text-lg font-semibold">
                     {formatTime(currentHighlight.timestamp)}
                   </span>
                 </div>
@@ -519,10 +514,10 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
                 {currentHighlight.participants.slice(0, 5).map((participant, index) => (
                   <div 
                     key={index}
-                    className={`p-4 rounded-xl border-2 transition-all hover:scale-110 hover:shadow-xl ${
+                    className={`p-4 rounded-lg border transition-all hover:scale-110 hover:shadow-xl ${
                       participant.teamId === 100 
-                        ? 'bg-blue-500/30 border-blue-400' 
-                        : 'bg-red-500/30 border-red-400'
+                        ? 'bg-[#181818] border-blue-600' 
+                        : 'bg-[#181818] border-red-600'
                     }`}
                     style={{ animationDelay: `${index * 0.1}s` }}
                   >
@@ -546,14 +541,13 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
         </div>
       </div>
 
-      {/* Share Section - Shown after rewind completes */}
+      {/* Share Section - Shown after rewind completes - Bottom Left */}
       {showShare && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-fadeIn">
-          <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-lg rounded-2xl p-6 border-2 border-white/30 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-xl font-bold">Share This Rewind</h3>
+        <div className="fixed bottom-8 left-8 z-50 animate-fadeIn">
+          <div className="bg-[#121212] rounded-lg p-6 border border-gray-800 shadow-4xl max-w-l">
+            <div className="flex items-center justify-end mb-4">
               <button
-                onClick={() => router.back()}
+                onClick={() => setShowShare(false)}
                 className="text-white/60 hover:text-white transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -565,6 +559,19 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
               title={`Match Complete - ${winningTeam === 100 ? 'Blue' : 'Red'} Victory`}
               description={`Check out these amazing match highlights!`}
             />
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <a
+                href={`/widgets-share?type=match&matchId=${matchId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full block px-4 py-2 bg-[#1a1a1a] hover:bg-[#222222] text-white rounded-lg font-medium transition-colors text-center border border-gray-800"
+              >
+                <svg className="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open Widget Page
+              </a>
+            </div>
           </div>
         </div>
       )}
@@ -572,7 +579,7 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
       {/* AI Analysis Modal */}
       {showAiSlide && aiAnalysis && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
-          <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-3xl p-8 max-w-4xl max-h-[90vh] overflow-y-auto border-2 border-white/20 shadow-2xl">
+          <div className="bg-[#121212] rounded-lg p-8 max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-800 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="text-4xl">🤖</div>
@@ -599,7 +606,7 @@ export default function MatchRewind({ timeline, participants, matchId, gameDurat
         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
           <button
             onClick={startRewind}
-            className="px-12 py-6 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white text-2xl font-bold rounded-full shadow-2xl transition-all transform hover:scale-110"
+            className="px-12 py-6 bg-[#121212] hover:bg-[#1a1a1a] text-white text-2xl font-bold rounded-lg shadow-2xl transition-all transform hover:scale-110 border border-gray-800"
           >
             Start Rewind
           </button>
