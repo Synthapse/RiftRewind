@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Champion, ChampionData } from '@/types/champion';
 import Link from 'next/link';
 import MatchAnalyzer from './MatchAnalyzer';
@@ -121,8 +122,10 @@ interface MatchData {
 }
 
 export default function MatchLookup() {
-  // Match data states
-  const [matchId, setMatchId] = useState('EUN1_3849902044');
+  const searchParams = useSearchParams();
+  
+  // Match data states - check URL params first
+  const [matchId, setMatchId] = useState(searchParams?.get('matchId') || 'EUN1_3849902044');
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
@@ -172,15 +175,16 @@ export default function MatchLookup() {
     }
   };
 
-  const fetchMatchData = async () => {
-    if (!matchId.trim()) return;
+  const fetchMatchData = async (overrideMatchId?: string) => {
+    const idToFetch = overrideMatchId || matchId;
+    if (!idToFetch.trim()) return;
     
     try {
       setMatchLoading(true);
       setMatchError(null);
       
       // Use the full match ID (e.g., EUN1_3849902044)
-      const fullMatchId = matchId;
+      const fullMatchId = idToFetch;
       
       // Match endpoint with API key as query parameter
       const matchUrl = `https://${RIOT_API_CONFIG.REGION}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}?api_key=${API_KEY}`;
@@ -336,6 +340,16 @@ export default function MatchLookup() {
   useEffect(() => {
     fetchChampionData();
   }, []);
+
+  // Handle URL parameter matchId - auto-fetch if present
+  useEffect(() => {
+    const urlMatchId = searchParams?.get('matchId');
+    if (urlMatchId && urlMatchId.trim() && urlMatchId !== matchId) {
+      setMatchId(urlMatchId);
+      // Auto-fetch immediately with the URL matchId
+      fetchMatchData(urlMatchId);
+    }
+  }, [searchParams]);
 
 
   const fetchAIAnalysis = async () => {
@@ -665,7 +679,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
             value={matchId}
             onChange={(e) => setMatchId(e.target.value)}
           />
-          <button onClick={fetchMatchData}>Fetch</button>
+          <button onClick={() => fetchMatchData()}>Fetch</button>
         </div>
 
         {/* Error Display */}

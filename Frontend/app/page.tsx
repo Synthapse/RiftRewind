@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import MatchLookup from '@/components/ChampionList';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
@@ -248,7 +248,14 @@ export default function Home() {
 
       {/* Main content */}
       <div id="match-lookup" className="space-y-12 py-12">
-        <MatchLookup />
+        <Suspense fallback={
+          <div className="flex items-center justify-center py-12">
+            <div className="w-12 h-12 border-4 border-blue-500 dark:border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-4 text-gray-600 dark:text-gray-400">Loading match lookup...</span>
+          </div>
+        }>
+          <MatchLookup />
+        </Suspense>
         {/* <VideoAnalyzer /> */}
       </div>
     </div>

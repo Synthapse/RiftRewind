@@ -611,9 +611,90 @@ Focus on actionable insights that can help the player improve their gameplay.`;
           </div>
         )}
 
-        {/* Player 5 Matches Widget - Replaces Recent Matches */}
+        {/* Last 5 Matches */}
         {!loadingMatches && playerMatches.length > 0 && (
           <div className="max-w-6xl mx-auto mb-8">
+            <div className="bg-white dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Last 5 Matches</h2>
+              <div className="space-y-4">
+                {playerMatches.map((match, index) => {
+                  const matchDate = new Date(match.gameCreation);
+                  const durationMinutes = Math.floor(match.gameDuration / 60);
+                  const durationSeconds = match.gameDuration % 60;
+                  const kda = `${match.kills}/${match.deaths}/${match.assists}`;
+                  const kdaRatio = match.deaths > 0 
+                    ? ((match.kills + match.assists) / match.deaths).toFixed(2)
+                    : (match.kills + match.assists).toFixed(2);
+                  
+                  return (
+                    <div
+                      key={match.matchId}
+                      className={`bg-gray-50 dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 p-4 hover:shadow-lg transition-shadow ${
+                        match.win 
+                          ? 'border-l-4 border-l-green-500' 
+                          : 'border-l-4 border-l-red-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              match.win
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                            }`}>
+                              {match.win ? 'Victory' : 'Defeat'}
+                            </span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {matchDate.toLocaleDateString()} {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {durationMinutes}:{durationSeconds.toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div>
+                              <span className="text-lg font-bold text-gray-900 dark:text-white">
+                                {match.champion}
+                              </span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">
+                                {match.gameMode}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <span className="text-sm text-gray-600 dark:text-gray-400">KDA: </span>
+                                <span className="font-semibold text-gray-900 dark:text-white">{kda}</span>
+                                <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
+                                  ({kdaRatio})
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-500">Match ID: </span>
+                                <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                                  {match.matchId}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <button
+                            onClick={() => {
+                              router.push(`/?matchId=${match.matchId}`);
+                            }}
+                            className="px-4 py-2 bg-gray-100 dark:bg-[#181818] hover:bg-gray-200 dark:hover:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors flex items-center space-x-2 border border-gray-200 dark:border-gray-800"
+                          >
+                            <span>🔍</span>
+                            <span>Analyse this match</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
