@@ -1165,7 +1165,7 @@ Please provide a detailed analysis focusing on this specific player's performanc
                             
                             {/* Detailed Stats (Accordion) */}
                             {isExpanded && (
-                              <div className="border-t border-gray-800 p-4 bg-[#121212]">
+                              <div className="border-t border-gray-200 dark:border-gray-800 p-4 bg-white/40 dark:bg-[#121212]">
                                 <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                   <div className="space-y-2">
                                     <div className="flex justify-between">
